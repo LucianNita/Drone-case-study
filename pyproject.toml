@@ -17,6 +17,7 @@ dependencies = [
   "scipy",
   "networkx",
   "matplotlib",
+  "scikit-learn",
 ]
 
 [project.optional-dependencies]

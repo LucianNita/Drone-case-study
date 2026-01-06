@@ -9,6 +9,7 @@ class Task:
     priority: float = 1.0
     earliest_time: Optional[float] = None
     latest_time: Optional[float] = None
+    type: Optional[int] = None  # e.g. 0-unconstrained, 1-constrained, etc.
 
 
 @dataclass
