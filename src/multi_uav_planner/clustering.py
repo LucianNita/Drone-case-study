@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Dict, Tuple
-
+from typing import List, Dict
 import numpy as np
 from sklearn.cluster import KMeans
 
@@ -38,8 +37,7 @@ def cluster_tasks_kmeans(
     random_state: int = 42,
 ) -> TaskClusterResult:
     """
-    Cluster tasks into K groups using K-means, as described in the paper
-    (Section IV-A, 'Task Clustering').
+    Cluster tasks into K groups using K-means.
 
     Args:
         tasks: list of Task objects with 2D positions.
@@ -68,8 +66,9 @@ def cluster_tasks_kmeans(
     task_to_cluster: Dict[int, int] = {}
 
     for task, label in zip(tasks, labels):
-        clusters[int(label)].append(task)
-        task_to_cluster[task.id] = int(label)
+        label_int = int(label)
+        clusters[label_int].append(task)
+        task_to_cluster[task.id] = label_int
 
     return TaskClusterResult(
         clusters=clusters,
@@ -83,43 +82,48 @@ def assign_clusters_to_uavs_by_proximity(
     cluster_centers: np.ndarray,
 ) -> Dict[int, int]:
     """
-    Simple rule: assign each cluster to the nearest UAV (by Euclidean distance
-    between UAV position and cluster center), ensuring that each cluster is
-    assigned to exactly one UAV.
+    Assign each cluster to a distinct UAV, approximately by proximity.
 
-    Args:
-        uavs: list of UAVState.
-        cluster_centers: array (K, 2) of cluster center positions.
-
-    Returns:
-        Mapping from cluster index -> UAV id.
+    We build a cost matrix of squared Euclidean distances between
+    UAV positions and cluster centers, then greedily pick the
+    lowest-cost pairs without reusing UAVs or clusters.
     """
-    if cluster_centers.shape[0] != len(uavs):
-        # In the paper, K is usually equal to the number of UAVs.
-        # We keep it simple and require that here as well.
+    K = cluster_centers.shape[0]
+    if K != len(uavs):
         raise ValueError(
-            "Number of clusters must equal number of UAVs "
-            "for this simple assignment rule."
+            "Number of clusters must equal number of UAVs for this assignment rule."
         )
 
-    K = cluster_centers.shape[0]
-    cluster_to_uav: Dict[int, int] = {}
-
-    for cluster_idx in range(K):
-        cx, cy = cluster_centers[cluster_idx]
-        best_uav_id: int | None = None
-        best_dist_sq = float("inf")
-
-        for uav in uavs:
-            ux, uy = uav.position
+    # Build cost matrix: costs[i, j] = dist^2 between UAV i and cluster j
+    costs = np.zeros((K, K), dtype=float)
+    for i, uav in enumerate(uavs):
+        ux, uy = uav.position
+        for j in range(K):
+            cx, cy = cluster_centers[j]
             dx = cx - ux
             dy = cy - uy
-            d_sq = dx * dx + dy * dy
-            if d_sq < best_dist_sq:
-                best_dist_sq = d_sq
-                best_uav_id = uav.id
+            costs[i, j] = dx * dx + dy * dy
 
-        assert best_uav_id is not None
-        cluster_to_uav[cluster_idx] = best_uav_id
+    # Greedy assignment
+    cluster_to_uav: Dict[int, int] = {}
+    used_uavs = set()
+    used_clusters = set()
+
+    pairs = [
+        (costs[i, j], i, j)
+        for i in range(K)
+        for j in range(K)
+    ]
+    pairs.sort(key=lambda x: x[0])
+
+    for _, i, j in pairs:
+        if i in used_uavs or j in used_clusters:
+            continue
+        uav_id = uavs[i].id
+        cluster_to_uav[j] = uav_id
+        used_uavs.add(i)
+        used_clusters.add(j)
+        if len(used_clusters) == K:
+            break
 
     return cluster_to_uav
