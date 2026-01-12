@@ -3,7 +3,7 @@
 This project is a **Python implementation** of the algorithm described in:
 
 > **Dynamic real-time multi-UAV cooperative mission planning method under multiple constraints**  
-> Chenglou Liu et al., 2025 (arXiv:2506.02365)
+> Chenglou Liu et al., 2025(arXiv:2506.02365)
 
 The goal is to provide:
 
