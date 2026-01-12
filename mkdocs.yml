@@ -1,7 +1,7 @@
 site_name: Multi-UAV Planner
 site_description: "Python implementation of a dynamic real-time multi-UAV cooperative mission planning algorithm based on Dubins paths"
 site_url: https://luciannita.github.io/Drone-case-study/
-repo_url: https://github.com/LucianNita/Drone-case-study
+repo_url: https://github.com/LucianNita/Drone-case-study.git
 theme:
   name: material
 
