@@ -7,9 +7,7 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+  contents: write       # allow pushing to gh-pages
 
 jobs:
   build-deploy:
@@ -37,4 +35,5 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
-          publish_dir: ./site
+          publish_dir:./site
+          force_orphan: true
