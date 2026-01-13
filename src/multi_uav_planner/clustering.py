@@ -1,34 +1,39 @@
+# src/multi_uav_planner/clustering.py
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import List, Dict
+
 import numpy as np
 from sklearn.cluster import KMeans
 
-from.task_models import Task, UAVState
+from.task_models import Task, UAV
 
 
 @dataclass
 class TaskClusterResult:
-    """Result of K-means task clustering."""
+    """Result of K-means task clustering.
 
-    # Mapping: cluster index -> list of Task objects
+    Attributes:
+        clusters:
+            Mapping from cluster index -> list of Task objects in that cluster.
+        centers:
+            Array of shape (K, 2) with cluster centers (x, y).
+        task_to_cluster:
+            Mapping from task.id -> cluster index.
+    """
+
     clusters: Dict[int, List[Task]]
-
-    # Array of shape (n_clusters, 2) with cluster center coordinates
     centers: np.ndarray
-
-    # Mapping from task.id -> cluster index
     task_to_cluster: Dict[int, int]
 
 
 def _extract_task_positions(tasks: List[Task]) -> np.ndarray:
-    """Return Nx2 array of (x, y) positions from Task list."""
-    positions = np.array(
+    """Return an (N, 2) array of (x, y) positions from a list of tasks."""
+    return np.array(
         [[t.position[0], t.position[1]] for t in tasks],
         dtype=float,
     )
-    return positions
 
 
 def cluster_tasks_kmeans(
@@ -36,16 +41,22 @@ def cluster_tasks_kmeans(
     n_clusters: int,
     random_state: int = 42,
 ) -> TaskClusterResult:
-    """
-    Cluster tasks into K groups using K-means.
+    """Cluster tasks into K groups using K-means on their 2D positions.
 
     Args:
-        tasks: list of Task objects with 2D positions.
-        n_clusters: number of clusters (typically equal to number of UAVs).
-        random_state: seed for reproducibility.
+        tasks:
+            List of Task objects with 2D positions.
+        n_clusters:
+            Number of clusters (typically equal to number of UAVs).
+        random_state:
+            Random seed for reproducibility.
 
     Returns:
-        TaskClusterResult containing clusters, centers, and mapping.
+        TaskClusterResult with clusters, centers, and task->cluster mapping.
+
+    Raises:
+        ValueError:
+            If n_clusters <= 0 or n_clusters > number of tasks.
     """
     if n_clusters <= 0:
         raise ValueError("n_clusters must be positive")
@@ -78,33 +89,46 @@ def cluster_tasks_kmeans(
 
 
 def assign_clusters_to_uavs_by_proximity(
-    uavs: List[UAVState],
+    uavs: List[UAV],
     cluster_centers: np.ndarray,
 ) -> Dict[int, int]:
-    """
-    Assign each cluster to a distinct UAV, approximately by proximity.
+    """Assign each cluster to a distinct UAV, approximately by proximity.
 
     We build a cost matrix of squared Euclidean distances between
-    UAV positions and cluster centers, then greedily pick the
-    lowest-cost pairs without reusing UAVs or clusters.
+    each UAV's current (x, y) position and each cluster center, then
+    greedily select the lowest-cost pairs without reusing UAVs or clusters.
+
+    Args:
+        uavs:
+            List of UAV objects. `uav.position` is (x, y, heading).
+        cluster_centers:
+            Array of shape (K, 2) with K cluster centers.
+
+    Returns:
+        Mapping from cluster index -> UAV id.
+
+    Raises:
+        ValueError:
+            If the number of clusters differs from the number of UAVs.
     """
     K = cluster_centers.shape[0]
     if K != len(uavs):
         raise ValueError(
-            "Number of clusters must equal number of UAVs for this assignment rule."
+            f"Number of clusters ({K}) must equal number of UAVs ({len(uavs)}) "
+            "for this assignment rule."
         )
 
     # Build cost matrix: costs[i, j] = dist^2 between UAV i and cluster j
     costs = np.zeros((K, K), dtype=float)
     for i, uav in enumerate(uavs):
-        ux, uy = uav.position
+        ux, uy, _ = uav.position  # ignore heading for clustering
         for j in range(K):
             cx, cy = cluster_centers[j]
             dx = cx - ux
             dy = cy - uy
             costs[i, j] = dx * dx + dy * dy
 
-    # Greedy assignment
+    # Greedy assignment of clusters to UAVs
     cluster_to_uav: Dict[int, int] = {}
     used_uavs = set()
     used_clusters = set()
