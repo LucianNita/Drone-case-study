@@ -27,13 +27,14 @@ class LineTask(Task):
 @dataclass
 class CircleTask(Task):
     radius: float  # Radius of the circle in meters
+    side: Literal['left', 'right'] = 'left'  # Direction of the circle
 
 # ----- Area Task -----
 @dataclass
 class AreaTask(Task):
-    num_passes: int      # Number of passes required to cover area
     pass_length: float   # Length of each pass in meters
     pass_spacing: float  # Spacing between passes in meters
+    num_passes: int = 3  # Number of passes required to cover area
     pass_side: Literal['left', 'right'] = 'left'  # Side of the first pass
 
 

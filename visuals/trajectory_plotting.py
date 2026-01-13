@@ -233,13 +233,25 @@ def plot_circle_task(task: CircleTask):
     x, y = task.position
     radius = task.radius
     Np=100
+
+    if task.side=='left':
+        v=task.heading + math.pi/2
+    else:   
+        v=task.heading - math.pi/2
+    
+    xc= x + radius * math.cos(v)
+    yc= y + radius * math.sin(v)
     
     pts=[]
 
     for i in range(Np+1):
         angle = i*2*math.pi/Np
-        xp = x + radius * math.cos(angle)
-        yp = y + radius * math.sin(angle)   
+        if task.side=='left':
+            xp = xc + radius * math.cos(v+math.pi+angle)
+            yp = yc + radius * math.sin(v+math.pi+angle)   
+        else:
+            xp = xc + radius * math.cos(v+math.pi - angle)
+            yp = yc + radius * math.sin(v+math.pi - angle)
         pts.append((xp,yp))
 
     return pts
@@ -276,6 +288,20 @@ def plot_uav_trajectory(uav_start, tasks, turn_radius):
         plt.plot(xs, ys, color=colors[i % len(colors)], label=f'Task {i+1}')
         # Plot task location
         plt.plot(task.position[0], task.position[1], 'ko')
+        #if constrained plot arrow
+        
+        if task.type == 'Circle':
+            pts=plot_circle_task(task)
+            xs, ys = zip(*pts)
+            plt.plot(xs, ys, color=colors[i % len(colors)], label=f'Task {i+1}')
+        elif task.type == 'Line':
+            pts=plot_line_task(task)
+            xs, ys = zip(*pts)
+            plt.plot(xs, ys, color=colors[i % len(colors)], label=f'Task {i+1}')
+            next_pose = (task.position[0] + task.length * math.cos(task.heading),task.position[1] + task.length * math.sin(task.heading), task.heading)
+        '''elif task.type == 'Area':
+            print("To be implemented")
+           '''
         curr_pose = next_pose
 
     plt.plot(uav_start[0], uav_start[1], 'ks', label='Start')
