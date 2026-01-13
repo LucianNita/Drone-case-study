@@ -14,7 +14,7 @@ from.clustering import (
     TaskClusterResult,
 )
 
-from.assignment import (
+from.greedy_assignment import (
     allocate_tasks_with_clustering_greedy,
     UAVRoute,
 )
@@ -468,7 +468,7 @@ def assign_new_tasks_to_existing_clusters(
 
     return task_to_cluster
 
-from.assignment import plan_route_for_single_uav_greedy  # you already have this
+from.greedy_assignment import plan_route_for_single_uav_greedy  # you already have this
 
 
 def replan_for_cluster_from_dynamic_state(

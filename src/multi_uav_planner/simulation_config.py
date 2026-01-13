@@ -6,7 +6,7 @@ from typing import Dict, List
 
 from.task_models import Task, UAVState
 from.clustering import TaskClusterResult
-from.assignment import UAVRoute
+from.greedy_assignment import UAVRoute
 
 
 @dataclass

@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 import numpy as np
 
 from.task_models import Task, UAVState
-from.assignment import plan_route_for_single_uav_greedy
+from.greedy_assignment import plan_route_for_single_uav_greedy
 from.simulation_config import SimulationState
 from.simulation_dynamic_core import UAVDynamicState
 

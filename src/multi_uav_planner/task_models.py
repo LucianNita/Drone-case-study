@@ -35,7 +35,7 @@ class AreaTask(Task):
     pass_length: float   # Length of each pass in meters
     pass_spacing: float  # Spacing between passes in meters
     num_passes: int = 3  # Number of passes required to cover area
-    pass_side: Literal['left', 'right'] = 'left'  # Side of the first pass
+    side: Literal['left', 'right'] = 'left'  # Side of the first pass
 
 
 # --- UAV State ---
@@ -108,8 +108,8 @@ def compute_exit_pose(task: Task) -> Tuple[float, float, float]:
         assert isinstance(task, AreaTask)
         heading = task.heading if task.heading_enforcement else 0.0
         end_heading = heading if task.num_passes % 2 == 1 else (heading + math.pi)%(2*math.pi)
-        side_x = x + (task.num_passes - 1) * task.pass_spacing * math.cos(heading + (math.pi/2 if task.pass_side == 'left' else -math.pi/2))
-        side_y = y + (task.num_passes - 1) * task.pass_spacing * math.sin(heading + (math.pi/2 if task.pass_side == 'left' else -math.pi/2))
+        side_x = x + (task.num_passes - 1) * task.pass_spacing * math.cos(heading + (math.pi/2 if task.side == 'left' else -math.pi/2))
+        side_y = y + (task.num_passes - 1) * task.pass_spacing * math.sin(heading + (math.pi/2 if task.side == 'left' else -math.pi/2))
         if task.num_passes % 2 == 0:
             end_x=side_x
             end_y=side_y

@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import math
+import matplotlib.image as mpimg
 
 from multi_uav_planner.dubins import (
     DubinsCSPath, _normalize_angle, dubins_cs_shortest, dubins_cs_distance, _cs_path_single, _normalize_angle
@@ -11,7 +12,7 @@ from multi_uav_planner.dubins_csc import (
 )
 
 from multi_uav_planner.task_models import (
-    Task, PointTask, LineTask, CircleTask, AreaTask, UAV
+    Task, PointTask, LineTask, CircleTask, AreaTask, UAV, compute_exit_pose
 )
 
 def sample_cs_path(path: DubinsCSPath, num_points=100):
@@ -233,94 +234,58 @@ def plot_circle_task(task: CircleTask):
     x, y = task.position
     radius = task.radius
     Np=100
-
-    if task.side=='left':
-        v=task.heading + math.pi/2
-    else:   
-        v=task.heading - math.pi/2
-    
-    xc= x + radius * math.cos(v)
-    yc= y + radius * math.sin(v)
     
     pts=[]
 
     for i in range(Np+1):
         angle = i*2*math.pi/Np
         if task.side=='left':
-            xp = xc + radius * math.cos(v+math.pi+angle)
-            yp = yc + radius * math.sin(v+math.pi+angle)   
+            xp = x + radius * (math.cos(task.heading-math.pi/2+angle) + math.cos(task.heading+math.pi/2))
+            yp = y + radius * (math.sin(task.heading-math.pi/2+angle) + math.sin(task.heading+math.pi/2))
         else:
-            xp = xc + radius * math.cos(v+math.pi - angle)
-            yp = yc + radius * math.sin(v+math.pi - angle)
+            xp = x + radius * (math.cos(task.heading+math.pi/2-angle) + math.cos(task.heading - math.pi/2))
+            yp = y + radius * (math.sin(task.heading+math.pi/2-angle) + math.sin(task.heading - math.pi/2))
         pts.append((xp,yp))
 
     return pts
 
-
-
-def plot_uav_trajectory(uav_start, tasks, turn_radius):
+def plot_area_task(task: AreaTask):
     """
-    Plots the UAV trajectory through a sequence of tasks using Dubins paths.
+    Plots an area task on the current matplotlib axis.
     Args:
-        uav_start: (x, y, heading) tuple
-        tasks: list of Task objects (with position and heading info)
-        turn_radius: minimum turning radius for Dubins paths
+        task: AreaTask object
     """
-    curr_pose = uav_start
-    plt.figure(figsize=(8, 8))
-    colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k']
-    for i, task in enumerate(tasks):
-        # Determine if heading is enforced at task
-        if hasattr(task, 'heading_enforcement') and task.heading_enforcement and task.heading is not None:
-            # Use CSC Dubins
-            next_pose = (task.position[0], task.position[1], task.heading)
-            path = dubins_csc_shortest(curr_pose, next_pose, turn_radius)
-            pts = sample_csc_path(path)
-        else:
-            # Use CS Dubins
-            next_point = task.position
-            path = dubins_cs_shortest(curr_pose, next_point, turn_radius)
-            pts, heading = sample_cs_path(path)
-            # For next leg, assume heading is unchanged
-            next_pose = (task.position[0], task.position[1], heading)
-        # Plot path
-        xs, ys = zip(*pts)
-        plt.plot(xs, ys, color=colors[i % len(colors)], label=f'Task {i+1}')
-        # Plot task location
-        plt.plot(task.position[0], task.position[1], 'ko')
-        #if constrained plot arrow
-        
-        if task.type == 'Circle':
-            pts=plot_circle_task(task)
-            xs, ys = zip(*pts)
-            plt.plot(xs, ys, color=colors[i % len(colors)], label=f'Task {i+1}')
-        elif task.type == 'Line':
-            pts=plot_line_task(task)
-            xs, ys = zip(*pts)
-            plt.plot(xs, ys, color=colors[i % len(colors)], label=f'Task {i+1}')
-            next_pose = (task.position[0] + task.length * math.cos(task.heading),task.position[1] + task.length * math.sin(task.heading), task.heading)
-        '''elif task.type == 'Area':
-            print("To be implemented")
-           '''
-        curr_pose = next_pose
+    x, y = task.position
+    radius = task.pass_spacing/2
+    Np=100
+    pl=task.pass_length
+    np=task.num_passes
+    pts=[]
 
-    plt.plot(uav_start[0], uav_start[1], 'ks', label='Start')
-    plt.xlabel('X')
-    plt.ylabel('Y')
-    plt.title('UAV Trajectory')
-    plt.legend()
-    plt.axis('equal')
-    plt.grid(True)
-    plt.show()
 
-# Example UAV and tasks
-uav_start = (0.0, 0.0, 0.0)
-tasks = [
-    PointTask(id=1, state=0, type='Point', position=(10, 5), heading_enforcement=False, heading=None),
-    LineTask(id=2, state=0, type='Line', position=(20, 30), length=10, heading_enforcement=True, heading=math.pi/4),
-    CircleTask(id=3, state=0, type='Circle', position=(40, 15), radius=5, heading_enforcement=True, heading=math.pi/2),
-    PointTask(id=4, state=0, type='Point', position=(0.0, 0.0), heading_enforcement=True, heading=0.0)
-]
-turn_radius = 3.0
-
-plot_uav_trajectory(uav_start, tasks, turn_radius)
+    for j in range(Np+1):
+        xp= x + j*pl*math.cos(task.heading)/Np
+        yp= y + j*pl*math.sin(task.heading)/Np
+        pts.append((xp,yp))
+    x += pl*math.cos(task.heading)
+    y += pl*math.sin(task.heading)
+    
+    for i in range(np-1):
+        for j in range(Np+1):
+            angle = j*math.pi/Np
+            if (task.side=='left' and i%2==0) or (task.side=='right' and i%2==1):
+                xp = x + radius * (math.cos(task.heading-math.pi/2+angle) + math.cos(task.heading+math.pi/2))
+                yp = y + radius * (math.sin(task.heading-math.pi/2+angle) + math.sin(task.heading+math.pi/2))
+            else:
+                xp = x + radius * (math.cos(task.heading-math.pi/2-angle) + math.cos(task.heading + math.pi/2))
+                yp = y + radius * (math.sin(task.heading-math.pi/2-angle) + math.sin(task.heading + math.pi/2))
+            pts.append((xp,yp))
+        x += 2*radius*math.cos(task.heading+math.pi/2)
+        y += 2*radius*math.sin(task.heading+math.pi/2)
+        for j in range(Np+1):
+            xp= x + j*pl*math.cos(task.heading+math.pi*(i+1))/Np
+            yp= y + j*pl*math.sin(task.heading+math.pi*(i+1))/Np
+            pts.append((xp,yp))
+        x += pl*math.cos(task.heading+math.pi*(i+1))
+        y += pl*math.sin(task.heading+math.pi*(i+1))
+    return pts

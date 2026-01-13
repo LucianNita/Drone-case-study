@@ -1,5 +1,5 @@
 from multi_uav_planner.task_models import Task, UAVState
-from multi_uav_planner.assignment import assign_tasks
+from multi_uav_planner.greedy_assignment import assign_tasks
 
 
 def main() -> None:

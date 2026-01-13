@@ -7,7 +7,7 @@ from multi_uav_planner.clustering import (
     cluster_tasks_kmeans,
     assign_clusters_to_uavs_by_proximity,
 )
-from multi_uav_planner.assignment import allocate_tasks_with_clustering_greedy
+from multi_uav_planner.greedy_assignment import allocate_tasks_with_clustering_greedy
 
 
 def make_random_tasks(n: int) -> list[Task]:
