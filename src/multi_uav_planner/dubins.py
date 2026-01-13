@@ -166,6 +166,15 @@ def dubins_cs_shortest(
     """
     if radius <= 0.0:
         raise ValueError("radius must be positive")
+    if (start[0], start[1]) == end:
+        return DubinsCSPath(
+            start=start,
+            end=end,
+            radius=radius,
+            path_type="LS",
+            arc_length=0.0,
+            straight_length=0.0,
+        )
 
     candidate_L = _cs_path_single(start, end, radius, "LS")
     candidate_R = _cs_path_single(start, end, radius, "RS")
