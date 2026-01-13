@@ -9,8 +9,8 @@ class Task:
     state: Literal[0, 1, 2]  # 0: unassigned, 1: assigned, 2: completed
     type: Literal['Point', 'Line', 'Circle', 'Area']
     position: Tuple[float, float]  # (x, y) coordinates
-    heading_enforcement: bool = False # 0 if unconstrained, 1 if constrained
-    heading: Optional[float] = None  # Heading in radians (if enforced)
+    heading_enforcement: bool  # 0 if unconstrained, 1 if constrained #False by default
+    heading: Optional[float]   # Heading in radians (if enforced) #None if not enforced
 
 # ----- Point Task -----
 @dataclass
@@ -49,7 +49,7 @@ class UAV:
     speed: float  # m/s
     max_turn_radius: float  # meters
     status: Literal[0, 1, 2, 3]  # 0: idle, 1: in-transit, 2: busy, 3: damaged
-    assigned_tasks: Optional[List[Task]] = None
+    assigned_tasks: Optional[List[Task]] # List of assigned tasks
     total_range: float  # meters
     max_range: float # meters
 

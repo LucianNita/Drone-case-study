@@ -5,7 +5,7 @@ Python reimplementation of the dynamic real-time multi-UAV cooperative mission
 planning method under multiple constraints (Liu et al., 2025).
 """
 
-from.task_models import Task, UAVState
+from.task_models import Task, UAV
 from.dubins import (
     DubinsCSPath,
     dubins_cs_shortest,
@@ -14,7 +14,7 @@ from.dubins import (
 
 __all__ = [
     "Task",
-    "UAVState",
+    "UAV",
     "DubinsCSPath",
     "dubins_cs_shortest",
     "dubins_cs_distance",
