@@ -1,5 +1,6 @@
 import math
 import sys
+import time
 from pathlib import Path
 
 from external_dubins import dubins_path_planner as dpp
@@ -15,16 +16,21 @@ def compare_dubins(
     gx, gy, gyaw = end
 
     # your implementation
+    t0 = time.perf_counter()
     my_len = dubins_csc_distance(start, end, radius)
-
+    dt = time.perf_counter()-t0
+    print(f"Your dubins_csc_distance took {dt*1e3:.3f} ms")
     # reference implementation
     curv = 1.0 / radius
+    t0 = time.perf_counter()
     _, _, _, mode, lengths = dpp.plan_dubins_path(
         sx, sy, syaw,
         gx, gy, gyaw,
         curvature=curv,
         step_size=0.1,
     )
+    dt = time.perf_counter()-t0
+    print(f"Reference dubins_path_planner took {dt*1e3:.3f} ms")
     ref_len = sum(lengths)
 
     print(f"Start={start}, End={end}, R={radius}")

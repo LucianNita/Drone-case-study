@@ -203,6 +203,10 @@ def run_dynamic_with_new_tasks_and_damage(
     Dynamic simulation with both:
       - new tasks (Algorithm 3-like)
       - UAV damage (Algorithm 4-like)
+    Returns:
+        - Final dynamic UAV states
+        - Final simulation time
+        - List of all tasks (initial + new)
     """
     dynamic_uavs, task_status = build_dynamic_uav_states(static_state)
     tasks_by_id: Dict[int, Task] = {t.id: t for t in static_state.tasks}
@@ -246,6 +250,7 @@ def run_dynamic_with_new_tasks_and_damage(
                     next_task_id += 1
                     new_tasks_created += 1
 
+                    # Assign to existing cluster centers
                     assignment = assign_new_tasks_to_existing_clusters(
                         [new_task],
                         initial_centers,
@@ -253,6 +258,7 @@ def run_dynamic_with_new_tasks_and_damage(
                     cluster_idx = assignment[new_task.id]
                     new_task_cluster_map[new_task.id] = cluster_idx
 
+                    # Re-plan for the responsible UAV
                     uav_id = cluster_to_uav[cluster_idx]
                     uav_dyn = next(u for u in dynamic_uavs if u.id == uav_id)
 

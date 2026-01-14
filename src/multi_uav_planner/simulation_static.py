@@ -56,6 +56,13 @@ def _add_return_to_base_leg(
     tasks_by_id: Dict[int, Task],
     turn_radius: float,
 ) -> Dict[int, float]:
+    """
+    For each UAV, add Dubins CS distance from its last task back to base S=(0,0)
+    and return the updated total planned distance per UAV.
+
+    This corresponds to the 'path from the exit configuration of the last
+    target to the base station' term in the paper's L_k definition.
+    """
     base_pos = (0.0, 0.0)
 
     uav_by_id: Dict[int, UAVState] = {u.id: u for u in uavs}
@@ -93,6 +100,17 @@ def _add_return_to_base_leg(
 def run_static_mission_simulation(
     config: SimulationConfig,
 ) -> SimulationState:
+    """
+    Run a single-shot static mission planning simulation, following the
+    structure used in the paper's deterministic simulations.
+
+    Steps:
+      1) Initialize RNG, UAVs, and random tasks.
+      2) Cluster tasks with K-means (K = n_uavs).
+      3) Assign clusters to UAVs by proximity.
+      4) Plan greedy Dubins routes within each cluster.
+      5) Add Dubins CS leg back to base for each UAV.
+    """
     random.seed(config.random_seed)
 
     uavs = _initialize_uavs(
@@ -146,6 +164,13 @@ def run_static_mission_simulation(
 
 
 def compute_completion_times(state: SimulationState) -> Dict[int, float]:
+    """
+    Compute mission completion time for each UAV,
+    assuming constant speed and that each UAV flies its planned path.
+
+    Returns:
+        Mapping from UAV id -> completion time (seconds).
+    """
     v = state.config.uav_speed
     return {
         uav_id: total_L / v
