@@ -100,6 +100,7 @@ def _csc_path(
     theta_sf = math.atan2(dy, dx)
 
     # Check feasibility for LSR/RSL (external tangent requires separation ≥ 2*radius)
+    print(path_type in {"LSR", "RSL"}, dx,dy, len_sf, 2 * radius)
     if path_type in {"LSR", "RSL"} and len_sf < 2 * radius:
         return None
 
@@ -214,3 +215,14 @@ def dubins_csc_distance(
     """
     path = dubins_csc_shortest(start, end, radius)
     return path.total_length
+
+
+start = (0.0, 0.0, 0.0)
+R = 10.0
+
+    # Construct an end pose with heading such that the two circles overlap.
+    # A simple way: place the goal close to the start with similar heading.
+end = (5.0, 0.0, 0.0)  # very close in front
+
+path = _csc_path(start, end, R, "LSR")
+print(path)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
-from.task_models import Task, UAVState
+from.task_models import Task, UAV
 from.dubins import dubins_cs_distance
 from.clustering import TaskClusterResult
 
@@ -27,7 +27,7 @@ def _compute_heading(from_pos: Tuple[float, float], to_pos: Tuple[float, float])
 
 
 def plan_route_for_single_uav_greedy(
-    uav: UAVState,
+    uav: UAV,
     tasks: List[Task],
     turn_radius: float,
 ) -> UAVRoute:
@@ -50,7 +50,7 @@ def plan_route_for_single_uav_greedy(
 
     remaining = tasks.copy()
     current_pos = uav.position
-    current_heading = uav.heading
+    current_heading = uav.position[2]
 
     route: List[int] = []
     total_distance = 0.0
@@ -90,7 +90,7 @@ def plan_route_for_single_uav_greedy(
 
 
 def allocate_tasks_with_clustering_greedy(
-    uavs: List[UAVState],
+    uavs: List[UAV],
     clustering_result: TaskClusterResult,
     cluster_to_uav: Dict[int, int],
     turn_radius: float,
@@ -110,7 +110,7 @@ def allocate_tasks_with_clustering_greedy(
         Mapping from UAV id -> UAVRoute.
     """
     # Index UAVs by id for quick lookup
-    uav_by_id: Dict[int, UAVState] = {u.id: u for u in uavs}
+    uav_by_id: Dict[int, UAV] = {u.id: u for u in uavs}
 
     uav_routes: Dict[int, UAVRoute] = {}
 
