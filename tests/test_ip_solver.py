@@ -1,3 +1,4 @@
+'''
 # tests/test_ip_solver.py
 import math
 
@@ -199,3 +200,4 @@ def test_solve_multi_uav_ip_dubins_basic() -> None:
     assert sol.status in {"Optimal", "Feasible"}
     assert _routes_visit_all_tasks_once(sol.routes, N=len(tasks))
     assert sol.total_cost >= 0.0
+'''

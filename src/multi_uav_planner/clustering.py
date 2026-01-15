@@ -151,3 +151,20 @@ def assign_clusters_to_uavs_by_proximity(
             break
 
     return cluster_to_uav
+
+def assign_uav_to_cluster(clustering_result,cluster_to_uav):
+    """
+    Convert a cluster->UAV assignment into a UAV->task_ids mapping.
+
+    Args:
+        clustering_result: Output of cluster_tasks_kmeans.
+        cluster_to_uav: Mapping from cluster index -> UAV id.
+
+    Returns:
+        Mapping from UAV id -> list of task ids assigned to that UAV.
+    """
+    A: Dict[int, List[int]]={}
+    for cluster_idx, cluster_tasks in clustering_result.clusters.items():
+            uav_id = cluster_to_uav[cluster_idx]
+            A[uav_id]=[t.id for t in cluster_tasks]
+    return A

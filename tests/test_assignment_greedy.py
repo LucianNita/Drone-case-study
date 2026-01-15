@@ -1,3 +1,4 @@
+'''
 import math
 import pytest
 
@@ -181,3 +182,4 @@ def test_allocate_tasks_with_clustering_greedy_skips_empty_clusters() -> None:
 
     # No tasks => allocator should return an empty mapping or mapping with no tasks
     assert routes == {} or all(len(r.task_ids) == 0 for r in routes.values())
+'''

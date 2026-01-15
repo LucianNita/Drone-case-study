@@ -3,6 +3,8 @@ import numpy as np
 from typing import Set, List, Tuple
 from multi_uav_planner.task_models import Task, UAV
 from multi_uav_planner.path_model import Segment, LineSegment, CurveSegment
+from multi_uav_planner.path_planner import plan_mission_path,plan_path_to_task
+from multi_uav_planner.clustering import cluster_tasks_kmeans,assign_clusters_to_uavs_by_proximity,assign_uav_to_cluster
 
 def simulate_mission(
     tasks: List[Task],
@@ -42,8 +44,12 @@ def simulate_mission(
         if idle_uavs and unassigned:
             # For now: greedy one-task-at-a-time assignment.
             # You can later plug IP or cluster-based logic here.
-            M = build_cost_matrix(uavs[idle_uavs], [tasks[i] for i in unassigned])
-            A = get_assignment(M, uavs[idle_uavs], [tasks[i] for i in unassigned])
+
+            #M = build_cost_matrix(uavs[idle_uavs], [tasks[i] for i in unassigned])
+            clustering_result = cluster_tasks_kmeans([tasks[i] for i in unassigned], n_clusters=len(idle_uavs), random_state=0)
+            cluster_to_uav = assign_clusters_to_uavs_by_proximity([uavs[k] for k in idle_uavs], clustering_result.centers)
+            A = assign_uav_to_cluster(clustering_result,cluster_to_uav)
+            #A = get_assignment(M, uavs[idle_uavs], [tasks[i] for i in unassigned])
 
             for j in list(idle_uavs):
                 if A[uavs[j].id] is not None:
@@ -121,14 +127,17 @@ def pose_update(uav: UAV, dt: float) -> None:
     
     # ----- Straight line segment -----
     if isinstance(seg, LineSegment):
-        total_length = seg.length()
-        step=distance/total_length
-        ds=seg.end-seg.start
+        sx, sy = seg.start
+        ex, ey = seg.end
+        dx, dy = ex - sx, ey - sy
+        L = math.hypot(dx, dy)
 
-        uav.position=(x+ds[0]*step,y+ds[1]*step)
+        step=distance/L
+
+        uav.position=(x+dx*step,y+dy*step)
 
         if compute_percentage_along_path(uav.position,seg)>1.0:
-            uav.position=(seg.end[0],seg.end[1])
+            uav.position=(ex,ey)
         return None
     elif isinstance(seg, CurveSegment):
         # Simplified circular motion update
@@ -163,5 +172,4 @@ def compute_percentage_along_path(
         curr_d_theta=heading-(segment.theta_s+np.sign(segment.d_theta)*math.pi/2)
         return curr_d_theta/segment.d_theta #abs might be needed, but in theory not
     else:
-        #Throw error
-        return 0.0
+        raise TypeError(f"Unsupported segment type: {type(segment)}")
