@@ -1,8 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from enum import Enum
-from math import hypot, atan2, sin, cos, pi
-from typing import Tuple, List, Dict
+from math import hypot, sin, cos, pi
+from typing import Tuple, List, Union
 
 
 Point = Tuple[float, float]
@@ -10,26 +9,22 @@ Point = Tuple[float, float]
 
 @dataclass
 class Segment:
-    """Abstract base; used for typing and common helpers."""
+    """Abstract interface for path segments."""
     def length(self) -> float:
         raise NotImplementedError
-
     def sample(self, n: int) -> List[Point]:
-        """Return n points (including endpoints) sampled along the segment.
-        n must be >= 2.
-        """
         if n < 2:
             raise ValueError("n must be >= 2")
         raise NotImplementedError
-
-    def to_dict(self) -> Dict:
+    def start_point(self) -> Point:
         raise NotImplementedError
-
+    def end_point(self) -> Point:
+        raise NotImplementedError
 
 @dataclass
 class LineSegment(Segment):
-    start: Point  # (x0, y0)
-    end: Point    # (xf, yf)
+    start: Point
+    end: Point
 
     def length(self) -> float:
         dx = self.end[0] - self.start[0]
@@ -37,7 +32,6 @@ class LineSegment(Segment):
         return hypot(dx, dy)
 
     def point_at(self, t: float) -> Point:
-        """Return point at fraction t in [0,1] along the line."""
         if not 0.0 <= t <= 1.0:
             raise ValueError("t must be in [0,1]")
         x = self.start[0] + t * (self.end[0] - self.start[0])
@@ -45,73 +39,43 @@ class LineSegment(Segment):
         return (x, y)
 
     def sample(self, n: int) -> List[Point]:
+        if n < 2:
+            raise ValueError("n must be >= 2")
         return [self.point_at(i / (n - 1)) for i in range(n)]
 
-    def to_dict(self) -> Dict:
-        return {
-            "type": "line",
-            "start": list(self.start),
-            "end": list(self.end),
-        }
+    def start_point(self) -> Point:
+        return self.start
 
-    @staticmethod
-    def from_dict(d: Dict) -> "LineSegment":
-        return LineSegment(tuple(d["start"]), tuple(d["end"]))
-
+    def end_point(self) -> Point:
+        return self.end
 
 @dataclass
 class CurveSegment(Segment):
     center: Point    # (xc, yc)
     radius: float    # R > 0
     theta_s: float   # start angle (radians)
-    d_theta: float   # angle run (radians) [-2pi,2pi], positive if left rotation
+    d_theta: float   # signed angle sweep (radians); +CCW, -CW
 
     def __post_init__(self):
         if self.radius <= 0:
             raise ValueError("radius must be > 0")
-        if not isinstance(self.rotation, Rotation):
-            raise ValueError("rotation must be a Rotation enum")
+        # optional guard: limit to one full revolution (customize to your needs)
+        if abs(self.d_theta) > 2 * pi + 1e-12:
+            raise ValueError("abs(d_theta) must be <= 2*pi")
 
     @staticmethod
     def _normalize_angle(a: float) -> float:
-        """Normalize angle into [0, 2*pi)."""
+        """Normalize angle to [0, 2*pi)."""
         return a % (2 * pi)
 
-    def _signed_delta_theta(self) -> float:
-        """Return signed delta angle following rotation direction.
-
-        If rotation is LEFT, the arc goes from theta_s to theta_f counterclockwise.
-        If rotation is RIGHT, it goes clockwise.
-        The returned delta is such that following:
-            angle(t) = theta_s + t * delta
-        for t in [0,1] traces the arc in the correct direction.
-        """
-        ts = self._normalize_angle(self.theta_s)
-        tf = self._normalize_angle(self.theta_f)
-
-        # raw CCW delta in [0, 2pi)
-        delta_ccw = (tf - ts) % (2 * pi)
-
-        if self.rotation == Rotation.LEFT:
-            # left means counterclockwise, use delta_ccw in [0, 2pi)
-            return delta_ccw
-        else:
-            # right means clockwise: negative angle with magnitude the CCW complement
-            # clockwise delta = - (2*pi - delta_ccw) if delta_ccw != 0 else 0
-            if delta_ccw == 0:
-                return 0.0
-            return -(2 * pi - delta_ccw)
-
     def length(self) -> float:
-        delta = self._signed_delta_theta()
-        return abs(self.radius * delta)
+        # L = R * |d_theta|
+        return abs(self.radius * self.d_theta)
 
     def angle_at(self, t: float) -> float:
-        """Angle (radians) at fraction t in [0,1] along the arc."""
         if not 0.0 <= t <= 1.0:
             raise ValueError("t must be in [0,1]")
-        delta = self._signed_delta_theta()
-        return self.theta_s + t * delta
+        return self.theta_s + t * self.d_theta
 
     def point_at(self, t: float) -> Point:
         a = self.angle_at(t)
@@ -120,35 +84,30 @@ class CurveSegment(Segment):
         return (x, y)
 
     def sample(self, n: int) -> List[Point]:
+        if n < 2:
+            raise ValueError("n must be >= 2")
         return [self.point_at(i / (n - 1)) for i in range(n)]
 
-    def to_dict(self) -> Dict:
-        return {
-            "type": "curve",
-            "center": list(self.center),
-            "radius": self.radius,
-            "theta_s": self.theta_s,
-            "theta_f": self.theta_f,
-            "rotation": self.rotation.value,
-        }
+    def start_point(self) -> Point:
+        return self.point_at(0.0)
 
-    @staticmethod
-    def from_dict(d: Dict) -> "CurveSegment":
-        return CurveSegment(
-            center=tuple(d["center"]),
-            radius=float(d["radius"]),
-            theta_s=float(d["theta_s"]),
-            theta_f=float(d["theta_f"]),
-            rotation=Rotation(d["rotation"]),
-        )
+    def end_point(self) -> Point:
+        return self.point_at(1.0)
+    
+@dataclass
+class Path:
+    segments: List[Segment]
 
+    def length(self) -> float:
+        return sum(s.length() for s in self.segments)
 
-# Helper factory
-def Segment_from_dict(d: Dict) -> Segment:
-    t = d.get("type")
-    if t == "line":
-        return LineSegment.from_dict(d)
-    elif t == "curve":
-        return CurveSegment.from_dict(d)
-    else:
-        raise ValueError(f"unknown segment type: {t}")
+    def sample(self, samples_per_segment: int) -> List[Point]:
+        """Sample each segment; deduplicate the shared endpoint between segments."""
+        pts: List[Point] = []
+        for i, seg in enumerate(self.segments):
+            pts_seg = seg.sample(samples_per_segment)
+            if i > 0:
+                # drop the first point to avoid duplicating the junction
+                pts_seg = pts_seg[1:]
+            pts.extend(pts_seg)
+        return pts
