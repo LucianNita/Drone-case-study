@@ -51,6 +51,8 @@ class UAV:
     max_turn_radius: float  # meters
     status: Literal[0, 1, 2, 3]  # 0: idle, 1: in-transit, 2: busy, 3: damaged
     assigned_tasks: Optional[List[Task]] # List of assigned tasks
+    assigned_path: Optional[List[Segment]] # 
+    segment_progress: Optional[float] # percentage of current segment completed (0.0 to 1.0)
     total_range: float  # meters
     max_range: float # meters
 
