@@ -61,27 +61,11 @@ def test_csc_path_returns_none_when_circles_too_close(path_type: str) -> None:
     R = 10.0
 
     # Construct an end pose with heading such that the two circles overlap.
-    # A simple way: place the goal close to the start with similar heading.
+    # A simple way: place the goal close to the start with different heading.
     end = (5.0, 0.0, math.pi/2)  # very close in front
 
     path = _csc_path(start, end, R, path_type)
     assert path is None
-'''
-@pytest.mark.parametrize("path_type", ["LSR", "RSL"])
-def test_csc_path_returns_none_when_circles_too_close(path_type: str) -> None:
-    """For LSR/RSL, if the two turning circles are closer than 2R,
-    the external tangent should be infeasible and _csc_path must return None.
-    """
-    start = (0.0, 0.0, 0.0)
-    R = 10.0
-
-    # Construct an end pose with heading such that the two circles overlap.
-    # A simple way: place the goal close to the start with similar heading.
-    end = (5.0, 0.0, 0.0)  # very close in front
-
-    path = _csc_path(start, end, R, path_type)
-    assert path is None
-'''
 
 def test_dubins_csc_shortest_non_negative_and_type() -> None:
     """dubins_csc_shortest should return a DubinsCSCPath with non-negative length."""
@@ -133,3 +117,35 @@ def test_dubins_csc_distance_increases_with_radius() -> None:
 
     for i in range(1, len(distances)):
         assert distances[i] >= distances[i - 1] - 1e-6
+
+def test_csc_all_candidates_exist_and_shortest_selected():
+    start = (0.0, 0.0, 0.0)
+    end = (40.0, 0.0, 0.0)
+    R = 5.0
+
+    # Compute all candidates
+    cands = [c for c in (
+        _csc_path(start, end, R, "LSL"),
+        _csc_path(start, end, R, "RSR"),
+        _csc_path(start, end, R, "LSR"),
+        _csc_path(start, end, R, "RSL"),
+    ) if c is not None]
+
+    assert len(cands) == 4
+    shortest = min(cands, key=lambda p: p.total_length)
+    path = dubins_csc_shortest(start, end, R)
+    assert path.total_length == pytest.approx(shortest.total_length)
+
+    # Arc magnitude invariants (each CSC arc ≤ 2*pi*R)
+    for c in cands:
+        assert 0.0 <= c.arc1_length <= 2 * math.pi * R + 1e-9
+        assert 0.0 <= c.arc2_length <= 2 * math.pi * R + 1e-9
+        assert c.straight_length >= 0.0
+
+def test_csc_distance_wrapper_matches_total_length():
+    start = (12.0, -7.0, 1.2)
+    end = (50.0, 30.0, -0.4)
+    R = 8.0
+    path = dubins_csc_shortest(start, end, R)
+    d = dubins_csc_distance(start, end, R)
+    assert d == pytest.approx(path.total_length)

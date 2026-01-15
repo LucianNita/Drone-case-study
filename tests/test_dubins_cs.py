@@ -162,3 +162,56 @@ def test_dubins_cs_shortest_returns_path_when_at_least_one_side_feasible() -> No
 
     path = dubins_cs_shortest(start, end, R)
     assert isinstance(path, DubinsCSPath)
+
+def test_cs_both_candidates_exist_and_are_symmetric_forward_target():
+    start = (0.0, 0.0, 0.0)   # facing +x
+    end = (50.0, 0.0)         # target ahead
+    R = 10.0
+
+    ls = _cs_path_single(start, end, R, "LS")
+    rs = _cs_path_single(start, end, R, "RS")
+
+    assert ls is not None and rs is not None
+    # Symmetry across x-axis: both total lengths should be equal
+    assert ls.total_length == pytest.approx(rs.total_length, rel=1e-12)
+
+    # Shortest should pick one of them (tie-breaking likely gives LS first)
+    path = dubins_cs_shortest(start, end, R)
+    assert path.total_length == pytest.approx(ls.total_length)
+
+    # Arc magnitude invariant: CS arc should be within [0, pi*R]
+    assert 0.0 <= ls.arc_length <= math.pi * R + 1e-9
+    assert 0.0 <= rs.arc_length <= math.pi * R + 1e-9
+    # Straight is non-negative
+    assert ls.straight_length >= 0.0
+    assert rs.straight_length >= 0.0
+
+def test_cs_one_candidate_infeasible_other_feasible():
+    start = (0.0, 0.0, 0.0)   # facing +x
+    R = 10.0
+    # Place target near the left circle center so LS is infeasible (d < R), RS remains feasible
+    end = (0.0, R - 1.0)
+
+    ls = _cs_path_single(start, end, R, "LS")
+    rs = _cs_path_single(start, end, R, "RS")
+    assert ls is None
+    assert rs is not None
+
+    shortest = dubins_cs_shortest(start, end, R)
+    assert shortest.path_type == "RS"
+    # Arc magnitude invariant
+    assert 0.0 <= shortest.arc_length <= 2 * math.pi * R + 1e-9
+
+def test_cs_distance_wrapper_matches_total_length():
+    start = (5.0, -3.0, 0.7)
+    end = (40.0, 20.0)
+    R = 7.5
+    path = dubins_cs_shortest(start, end, R)
+    d = dubins_cs_distance(start, end, R)
+    assert d == pytest.approx(path.total_length)
+
+def test_cs_radius_non_positive_raises():
+    with pytest.raises(ValueError):
+        _ = dubins_cs_shortest((0.0, 0.0, 0.0), (10.0, 0.0), 0.0)
+    with pytest.raises(ValueError):
+        _ = dubins_cs_distance((0.0, 0.0, 0.0), (10.0, 0.0), -1.0)
