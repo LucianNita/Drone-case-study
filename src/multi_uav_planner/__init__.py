@@ -7,15 +7,11 @@ planning method under multiple constraints (Liu et al., 2025).
 
 from.task_models import Task, UAV
 from.dubins import (
-    DubinsCSPath,
-    dubins_cs_shortest,
-    dubins_cs_distance,
+    cs_segments_shortest,
 )
 
 __all__ = [
     "Task",
     "UAV",
-    "DubinsCSPath",
-    "dubins_cs_shortest",
-    "dubins_cs_distance",
+    "cs_segments_shortest",
 ]

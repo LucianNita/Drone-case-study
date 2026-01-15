@@ -1,92 +1,32 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import math
-from typing import Literal, Tuple, Optional
-
+from typing import Literal, Tuple, Optional, List
+from multi_uav_planner.path_model import Segment, LineSegment, CurveSegment
 
 PathType = Literal["LS", "RS"]
-
-
-@dataclass
-class DubinsCSPath:
-    """CS-type Dubins path (one circular arc + one straight segment).
-
-    This implements the CS-type path construction used as the Dubins
-    distance cost in Liu et al. (2025), Section III-D (Dubins Path
-    Distance Cost). The path goes:
-
-        start (x0, y0, θ0)  --arc-->  tangent point M  --straight-->  end (xf, yf)
-    """
-
-    start: Tuple[float, float, float]   # (x0, y0, theta0)
-    end: Tuple[float, float]            # (xf, yf) – no end heading constraint for now
-    radius: float
-    path_type: PathType                 # "LS" or "RS"
-
-    arc_length: float                   # length of circular arc (len_arc)
-    straight_length: float              # length of straight segment (len_MP_f)
-
-    @property
-    def total_length(self) -> float:
-        """Total CS-type path length: len_arc + len_MF."""
-        return self.arc_length + self.straight_length
-
-
-def _normalize_angle(angle: float) -> float:
-    """Normalize angle to [0, 2π)."""
-    two_pi = 2.0 * math.pi
-    angle = angle % two_pi
-    if angle < 0.0:
-        angle += two_pi
-    return angle
-
-
-def _cs_path_single(
+    
+def cs_segments_single(
     start: Tuple[float, float, float],
     end: Tuple[float, float],
     radius: float,
     path_type: PathType,
-) -> Optional[DubinsCSPath]:
-    """Compute one CS-type Dubins path (LS or RS) between a start configuration
-    and an end point.
-
-    This follows the geometry in Liu et al. (2025), Section III-D:
-
-    - Eq. (19): center of the start turning circle S.
-    - Eqs. (20)–(23): geometry of the tangent point M and its angle.
-    - Eq. (24): arc length len_arc = R * θ_arc.
-    - Eq. (25): straight length len_MF from M to the target.
-    - Eq. (26): CS-type total length L = len_arc + len_MF.
-
-    Args:
-        start: (x0, y0, theta0) start configuration (θ0 in radians).
-        end: (xf, yf) target point.
-        radius: minimum turning radius R.
-        path_type: "LS" (left-turn & straight) or "RS" (right-turn & straight).
-
-    Returns:
-        A DubinsCSPath if a tangent exists (d >= R), otherwise None.
+) -> Optional[List[Segment]]:
+    """
+    Build LS or RS as [CurveSegment, LineSegment]. Returns None if d < R (no tangent).
     """
     x0, y0, theta0 = start
     xf, yf = end
 
-    # --- 1. Start circle center S = (xs, ys)  [eq. (19)] --------------------
-    # For LS: circle to the LEFT of heading (θ0 + π/2).
-    # For RS: circle to the RIGHT of heading (θ0 - π/2).
-    if path_type == "LS":
-        theta_center = theta0 + math.pi / 2.0
-    else:  # "RS"
-        theta_center = theta0 - math.pi / 2.0
-
+    theta_center = theta0 + (math.pi / 2.0 if path_type == "LS" else -math.pi / 2.0)
+    
     xs = x0 + radius * math.cos(theta_center)
     ys = y0 + radius * math.sin(theta_center)
 
     # --- 2. Angle θ_SF and distance d from S to target F --------------------
     dx_sf = xf - xs
     dy_sf = yf - ys
-    d_sq = dx_sf * dx_sf + dy_sf * dy_sf
-    d = math.sqrt(d_sq)
+    d = math.hypot(dx_sf,dy_sf)
 
     # For a CS path, the straight segment is tangent to the circle:
     # distance from S to M is R, and line M-F extends to F.
@@ -107,95 +47,141 @@ def _cs_path_single(
     # LS: rotate SF CCW by +theta_mf-pi/2; RS: rotate CW by -theta_mf+pi/2.
     if path_type == "LS":
         theta_M = theta_sf + theta_mf - math.pi / 2.0
+        theta_s=theta0-math.pi/2
+        d_theta = (theta_M - theta_s)
     else:  # "RS"
         theta_M = theta_sf - theta_mf + math.pi / 2.0
-
+        theta_s=theta0+math.pi/2
+        d_theta = (theta_M - theta_s)
+    
     # Tangent point M on the circle: S + R * [cos θ_M, sin θ_M]. [eq. (23)]
     xM = xs + radius * math.cos(theta_M)
     yM = ys + radius * math.sin(theta_M)
 
-    # --- 5. Straight segment length len_MF = |MF|  [eq. (25)] --------------
-    straight_length = math.hypot(xf - xM, yf - yM)
+    
+    arc = CurveSegment(center=(xs, ys), radius=radius, theta_s=theta_s, d_theta=d_theta)
+    line = LineSegment(start=(xM, yM), end=(xf, yf))
+
+    return [arc, line]
 
 
-    # --- 6. Arc angle θ_arc and arc length len_arc  [eq. (24)] -------------
-    # Represent angles of the radius at start point and tangent point.
-
-    # Arc angle: signed depending on LS / RS
-    if path_type == "LS":
-        theta_s = theta_M - theta0 + math.pi / 2.0
-    else:  # "RS"
-        theta_s = theta0 - theta_M + math.pi / 2.0
-
-    arc_length = radius * _normalize_angle(theta_s)
-
-    return DubinsCSPath(
-        start=start,
-        end=(xf, yf),
-        radius=radius,
-        path_type=path_type,
-        arc_length=arc_length,
-        straight_length=straight_length,
-    )
-
-
-def dubins_cs_shortest(
+def cs_segments_shortest(
     start: Tuple[float, float, float],
     end: Tuple[float, float],
     radius: float,
-) -> DubinsCSPath:
-    """Compute the shortest CS-type Dubins path (LS or RS)
-    between a start configuration and an end point.
-
-    This corresponds to the CS-type path generation of Algorithm 1
-    in Liu et al. (2025), restricted to:
-
-      - A single turning circle at the start, and
-      - A point target with no end heading constraint.
-
-    Args:
-        start: (x0, y0, theta0) start configuration (θ0 in radians).
-        end: (xf, yf) target point.
-        radius: minimum turning radius R.
-
-    Returns:
-        DubinsCSPath for the shorter of the two candidates (LS and RS).
-
-    Raises:
-        ValueError: if radius <= 0 or no feasible CS path exists (d < R).
+) -> List[Segment]:
+    """
+    Return the shortest CS segments among LS/RS.
+    Raises ValueError if both are infeasible.
     """
     if radius <= 0.0:
         raise ValueError("radius must be positive")
     if (start[0], start[1]) == end:
-        return DubinsCSPath(
-            start=start,
-            end=end,
-            radius=radius,
-            path_type="LS",
-            arc_length=0.0,
-            straight_length=0.0,
-        )
+        return []
+    candidates = [cs_segments_single(start, end, radius, pt) for pt in ("LS", "RS")]
+    feasible = [segs for segs in candidates if segs is not None]
+    if not feasible:
+        raise ValueError("No feasible CS-type Dubins path")
+    return min(feasible, key=lambda segs: sum(s.length() for s in segs))
 
-    candidate_L = _cs_path_single(start, end, radius, "LS")
-    candidate_R = _cs_path_single(start, end, radius, "RS")
+CSCPathType = Literal["LSL", "LSR", "RSL", "RSR"]
 
-    candidates = [c for c in (candidate_L, candidate_R) if c is not None]
-    if not candidates:
-        raise ValueError("No feasible CS-type Dubins path: target is too close to the start circle.")
-
-    return min(candidates, key=lambda p: p.total_length)
-
-
-def dubins_cs_distance(
+def csc_segments_single(
     start: Tuple[float, float, float],
-    end: Tuple[float, float],
-    radius: float,
-) -> float:
-    """Return the length of the shortest CS-type Dubins path
-    between a start configuration and a point target.
-
-    This value is used as the Dubins distance cost between tasks
-    in the mission planning methods (cost matrix entries).
+    end: Tuple[float, float, float],
+    R: float,
+    path_type: CSCPathType,
+) -> Optional[List[Segment]]:
     """
-    path = dubins_cs_shortest(start, end, radius)
-    return path.total_length
+    Build one CSC path as [arc1, straight, arc2]. Returns None if infeasible.
+    """
+    # Unpack start and end configurations
+    x0, y0, th0 = start
+    xf, yf, thf = end
+
+    # Compute center of start circle
+    th_rad_s = th0 + (math.pi / 2.0 if path_type[0] == "L" else -math.pi / 2.0)
+    xs = x0 + R * math.cos(th_rad_s)
+    ys = y0 + R * math.sin(th_rad_s)
+
+    # Compute center of end circle
+    th_rad_f = thf + (math.pi / 2.0 if path_type[-1] == "L" else -math.pi / 2.0)
+    xf_c = xf + R * math.cos(th_rad_f)
+    yf_c = yf + R * math.sin(th_rad_f)
+
+
+    # Vector between circle centers
+    dx, dy = xf_c - xs, yf_c - ys
+    d = math.hypot(dx, dy)
+    th_sf = math.atan2(dy, dx)
+
+    inner = path_type in {"LSR", "RSL"}
+    # Check feasibility for LSR/RSL (external tangent requires separation ≥ 2*radius)
+    if inner and d < 2 * R:
+        return None
+
+    # Angle for tangent calculation (only nonzero for LSR/RSL)
+    theta_mn = 0.0
+    if inner:
+        theta_mn = math.asin(2 * R / d)
+
+    # Compute tangent angles and arc transitions
+    if path_type == "LSL":
+        th_M = th_sf - math.pi / 2.0
+        th_N = th_sf - math.pi / 2.0
+        theta_s1 = th0 - math.pi / 2.0
+        delta1 = (th_M - theta_s1)
+        theta_f2 = thf - math.pi/2
+        delta2 = (theta_f2 - th_N) 
+    elif path_type == "RSR":
+        th_M = th_sf + math.pi / 2.0
+        th_N = th_sf + math.pi / 2.0
+        theta_s1 = th0+math.pi/2
+        delta1 = (th_M - theta_s1)
+        theta_f2=thf+math.pi/2
+        delta2 = (theta_f2 - th_N) 
+    elif path_type == "LSR":
+        th_M = th_sf + theta_mn - math.pi / 2.0
+        th_N = th_sf + theta_mn + math.pi / 2.0
+        theta_s1 = th0 - math.pi/2
+        delta1= th_M-theta_s1
+        theta_f2= thf + math.pi/2
+        delta2=(theta_f2 - th_N) 
+    else: # "RSL"
+        th_M = th_sf - theta_mn + math.pi / 2.0
+        th_N = th_sf - theta_mn - math.pi / 2.0
+        theta_s1 = th0 + math.pi/2
+        delta1= th_M-theta_s1
+        theta_f2= thf - math.pi/2
+        delta2=(theta_f2 - th_N) 
+
+    # Compute tangent points on the circles
+    xM = xs + R * math.cos(th_M)
+    yM = ys + R * math.sin(th_M)
+    xN = xf_c + R * math.cos(th_N)
+    yN = yf_c + R * math.sin(th_N)
+
+    arc1 = CurveSegment(center=(xs, ys), radius=R, theta_s=theta_s1, d_theta=delta1)
+    line = LineSegment(start=(xM, yM), end=(xN, yN))
+    arc2 = CurveSegment(center=(xf_c, yf_c), radius=R, theta_s=th_N, d_theta=delta2)
+    return [arc1, line, arc2]
+
+def csc_segments_shortest(
+    start: Tuple[float, float, float],
+    end: Tuple[float, float, float],
+    radius: float,
+) -> List[Segment]:
+    """
+    Return the shortest CSC segments among the four types.
+    Raises ValueError if all are infeasible.
+    """
+    if radius <= 0.0:
+        raise ValueError("radius must be positive")
+
+    candidates = [
+        csc_segments_single(start, end, radius, pt) for pt in ("LSL", "LSR", "RSL", "RSR")
+    ]
+    feasible = [segs for segs in candidates if segs is not None]
+    if not feasible:
+        raise ValueError("No feasible CSC-type Dubins path")
+    return min(feasible, key=lambda segs: sum(s.length() for s in segs))
