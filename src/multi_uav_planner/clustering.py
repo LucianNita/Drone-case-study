@@ -166,5 +166,5 @@ def assign_uav_to_cluster(clustering_result,cluster_to_uav):
     A: Dict[int, List[int]]={}
     for cluster_idx, cluster_tasks in clustering_result.clusters.items():
             uav_id = cluster_to_uav[cluster_idx]
-            A[uav_id]=[t.id for t in cluster_tasks]
+            A[uav_id]=[t for t in cluster_tasks]
     return A

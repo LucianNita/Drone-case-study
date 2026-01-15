@@ -58,6 +58,10 @@ def cs_segments_single(
     xM = xs + radius * math.cos(theta_M)
     yM = ys + radius * math.sin(theta_M)
 
+    if d_theta>2*math.pi:
+        d_theta-=2*math.pi
+    if d_theta<-2*math.pi:
+        d_theta+=2*math.pi
     
     arc = CurveSegment(center=(xs, ys), radius=radius, theta_s=theta_s, d_theta=d_theta)
     line = LineSegment(start=(xM, yM), end=(xf, yf))
@@ -160,6 +164,15 @@ def csc_segments_single(
     yM = ys + R * math.sin(th_M)
     xN = xf_c + R * math.cos(th_N)
     yN = yf_c + R * math.sin(th_N)
+
+    if delta1>2*math.pi:
+        delta1-=2*math.pi
+    if delta1<-2*math.pi:
+        delta1+=2*math.pi
+    if delta2>2*math.pi:
+        delta2-=2*math.pi
+    if delta2<-2*math.pi:
+        delta2+=2*math.pi
 
     arc1 = CurveSegment(center=(xs, ys), radius=R, theta_s=theta_s1, d_theta=delta1)
     line = LineSegment(start=(xM, yM), end=(xN, yN))

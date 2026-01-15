@@ -11,7 +11,7 @@ from multi_uav_planner.clustering import (
     assign_clusters_to_uavs_by_proximity,
     assign_uav_to_cluster,
 )
-from multi_uav_planner.task_models import UAV, PointTask
+from multi_uav_planner.task_models import UAV, PointTask, Task
 
 def make_task(task_id: int, x: float, y: float) -> PointTask:
     # Minimal PointTask with required fields
@@ -108,7 +108,7 @@ def test_assign_clusters_to_uavs_by_proximity_uniqueness_one_to_one():
 
 # ---------- assign_uav_to_cluster ----------
 
-def test_assign_uav_to_cluster_builds_uav_to_task_ids_mapping():
+def test_assign_uav_to_cluster_builds_uav_to_task_objects_mapping():
     tasks = [
         make_task(1, 0.0, 0.0),
         make_task(2, 1.0, 0.0),
@@ -120,8 +120,14 @@ def test_assign_uav_to_cluster_builds_uav_to_task_ids_mapping():
     uavs = [make_uav(100, -1.0, 0.0), make_uav(200, 12.0, 0.0)]
     cluster_to_uav = assign_clusters_to_uavs_by_proximity(uavs, res.centers)
     uav_to_tasks = assign_uav_to_cluster(res, cluster_to_uav)
-    # Every task id appears exactly once
-    all_assigned = sorted(tid for tids in uav_to_tasks.values() for tid in tids)
-    assert all_assigned == [1, 2, 3, 4]
-    # Keys are UAV ids
+
+    # Sanity: mapping keys are UAV IDs
     assert set(uav_to_tasks.keys()) == {u.id for u in uavs}
+
+    # Elements are Task instances
+    for tids in uav_to_tasks.values():
+        assert all(isinstance(t, Task) for t in tids)
+
+    # Every task id appears exactly once across all UAV assignments
+    all_assigned_ids = sorted(t.id for tids in uav_to_tasks.values() for t in tids)
+    assert all_assigned_ids == [1, 2, 3, 4]

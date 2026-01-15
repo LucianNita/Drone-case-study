@@ -10,7 +10,7 @@ def simulate_mission(
     tasks: List[Task],
     uavs: List[UAV],
     dt: float,
-    max_time: float = 1e6
+    max_time: float = 1e2
 ) -> None:
     """
     Core simulation loop:
@@ -35,9 +35,9 @@ def simulate_mission(
     busy_uavs: Set[int]      = {j for j, u in enumerate(uavs) if u.status == 2}
     damaged_uavs: Set[int]   = {j for j, u in enumerate(uavs) if u.status == 3}
 
-    t = 0.0
+    time = 0.0
 
-    while unassigned or assigned:
+    while len(unassigned) or len(assigned)>0:
         # -------------------------------
         # 1) Assignment step
         # -------------------------------
@@ -46,7 +46,7 @@ def simulate_mission(
             # You can later plug IP or cluster-based logic here.
 
             #M = build_cost_matrix(uavs[idle_uavs], [tasks[i] for i in unassigned])
-            clustering_result = cluster_tasks_kmeans([tasks[i] for i in unassigned], n_clusters=len(idle_uavs), random_state=0)
+            clustering_result = cluster_tasks_kmeans([tasks[i] for i in unassigned], n_clusters=min(len(idle_uavs), len(unassigned)), random_state=0)
             cluster_to_uav = assign_clusters_to_uavs_by_proximity([uavs[k] for k in idle_uavs], clustering_result.centers)
             A = assign_uav_to_cluster(clustering_result,cluster_to_uav)
             #A = get_assignment(M, uavs[idle_uavs], [tasks[i] for i in unassigned])
@@ -58,8 +58,8 @@ def simulate_mission(
                     transit_uavs.add(j)
                     uavs[j].assigned_tasks = A[uavs[j].id]
                     uavs[j].assigned_path = plan_path_to_task(uavs[j], A[uavs[j].id][0])
-                    for k in unassigned:
-                        if tasks[k].id == A[uavs[j].id][0]:
+                    for k in list(unassigned):
+                        if tasks[k].id == A[uavs[j].id][0].id:
                             tasks[k].state = 1  # assigned
                             unassigned.remove(k)
                             assigned.add(k)
@@ -68,8 +68,7 @@ def simulate_mission(
         # Step 2: Move in-transit UAVs
         # -----------------------------
         for j in list(transit_uavs):
-                percentage_completed=compute_percentage_along_path(uavs[j].position,uavs[j].assigned_path[0])
-                if percentage_completed>=1.0:
+                if len(uavs[j].assigned_path)>0 and compute_percentage_along_path(uavs[j].position,uavs[j].assigned_path[0])>=1.0:
                     uavs[j].assigned_path.pop(0)
                     if not uavs[j].assigned_path:
                         # arrived at mission point
@@ -77,15 +76,19 @@ def simulate_mission(
                         busy_uavs.add(j)
                         uavs[j].status = 2  # busy
                         uavs[j].assigned_path = plan_mission_path(uavs[j], uavs[j].assigned_tasks[0])
+                elif len(uavs[j].assigned_path)<1:
+                    transit_uavs.remove(j)
+                    busy_uavs.add(j)
+                    uavs[j].status = 2  # busy
+                    uavs[j].assigned_path = plan_mission_path(uavs[j], uavs[j].assigned_tasks[0])
                 else:
-                    uavs[j].position=pose_update(uavs[j],dt)
+                    pose_update(uavs[j],dt)
 
         # -------------------------------
         # 3) Busy UAVs: coverage
         # -------------------------------
         for j in list(busy_uavs):
-            percentage_completed=compute_percentage_along_path(uavs[j].position,uavs[j].assigned_path[0])
-            if percentage_completed>=1.0:
+            if len(uavs[j].assigned_path)>0 and compute_percentage_along_path(uavs[j].position,uavs[j].assigned_path[0])>=1.0:
                 # coverage done
                 uavs[j].assigned_path.pop(0)
                 if not uavs[j].assigned_path:
@@ -95,19 +98,33 @@ def simulate_mission(
                     uavs[j].status = 0
                     t=uavs[j].assigned_tasks.pop(0)
                     t.state=2  # completed
-                    assigned.remove(t.id)
-                    completed.add(t.id)   
+                    for k in list(assigned):
+                        if tasks[k].id==t.id:
+                            assigned.remove(k)
+                            completed.add(k)
+                            break   
+            elif len(uavs[j].assigned_path)<1:
+                busy_uavs.remove(j)
+                idle_uavs.add(j)
+                uavs[j].status = 0
+                t=uavs[j].assigned_tasks.pop(0)
+                t.state=2  # completed
+                for k in list(assigned):
+                    if tasks[k].id==t.id:
+                        assigned.remove(k)
+                        completed.add(k)
+                        break   
             else:
                 # continue coverage along path  
-                uavs[j].position=pose_update(uavs[j],dt)
+                pose_update(uavs[j],dt)
 
         # -------------------------------
         # 4) Advance global time
         # -------------------------------
-        t += dt
+        time += dt
 
         # Safety break to avoid infinite loops due to logic bugs
-        if t > max_time:
+        if time > max_time:
             print("Simulation aborted: time limit exceeded")
             break
 
@@ -118,8 +135,8 @@ def pose_update(uav: UAV, dt: float) -> None:
     - For CurveSegment: move along circular arc.
     """
 
-    #if not uav.assigned_path:
-    #    return
+    if not uav.assigned_path:
+        return
 
     seg = uav.assigned_path[0]
     x, y, heading = uav.position
@@ -134,10 +151,10 @@ def pose_update(uav: UAV, dt: float) -> None:
 
         step=distance/L
 
-        uav.position=(x+dx*step,y+dy*step)
+        uav.position=(x+dx*step,y+dy*step,heading)
 
         if compute_percentage_along_path(uav.position,seg)>1.0:
-            uav.position=(ex,ey)
+            uav.position=(ex,ey,heading)
         return None
     elif isinstance(seg, CurveSegment):
         # Simplified circular motion update
