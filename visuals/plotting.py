@@ -1,59 +1,66 @@
-from typing import List, Tuple
-from multi_uav_planner.task_models import Task, PointTask, LineTask, CircleTask, AreaTask, compute_exit_pose
-from multi_uav_planner.dubins_csc import dubins_csc_shortest
-from get_trajectory import compute_uav_trajectory_segments  
 import matplotlib.pyplot as plt
-from matplotlib import image as mpimg
 import math
+import matplotlib.image as mpimg
+from typing import List, Tuple, Optional
+
+from multi_uav_planner.path_model import Segment, LineSegment, CurveSegment
+from multi_uav_planner.task_models import (
+    UAV, Task, PointTask, LineTask, CircleTask, AreaTask
+)
+from multi_uav_planner.dubins import (
+    cs_segments_shortest,
+    csc_segments_shortest,
+)
+from multi_uav_planner.path_planner import plan_path_to_task, plan_mission_path
+from trajectory_plotting import compute_uav_trajectory_segments
 
 def plot_uav_trajectory(
     uav_start: Tuple[float, float, float],
     tasks: List[Task],
     turn_radius: float,
+    background_image_path: Optional[str] = "src/assets/background.jpg",
+    extent: Optional[Tuple[float, float, float, float]] = None,
+    samples_per_segment: int = 100,
 ) -> None:
     """
-    Plots the UAV trajectory through a sequence of tasks using Dubins paths.
-    Args:
-        uav_start: (x, y, heading) tuple
-        tasks: list of Task objects (with position and heading info)
-        turn_radius: minimum turning radius for Dubins paths
+    Plot the UAV trajectory through a sequence of tasks using Dubins paths and coverage segments.
     """
-    segments = compute_uav_trajectory_segments(uav_start, tasks, turn_radius)
+    traj_segments = compute_uav_trajectory_segments(uav_start, tasks, turn_radius, samples_per_segment)
 
     plt.figure(figsize=(8, 8))
 
-    img = mpimg.imread("src/assets/background.jpg")
-
-    # Suppose you want it to cover the mission area [x_min, x_max] × [y_min, y_max]
-    x_min, x_max = -10, 100
-    y_min, y_max = -10, 100
-
-    plt.imshow(
-        img,
-        extent=[x_min, x_max, y_min, y_max],
-        origin="lower",
-        aspect="equal",
-        alpha=0.5,  # transparency; tweak as needed
-        zorder=0
-    )
+    if background_image_path is not None:
+        try:
+            img = mpimg.imread(background_image_path)
+            if extent is None:
+                # Default extent if none provided
+                extent = (-10.0, 100.0, -10.0, 100.0)
+            plt.imshow(
+                img,
+                extent=list(extent),
+                origin="lower",
+                aspect="equal",
+                alpha=0.5,
+                zorder=0,
+            )
+        except Exception:
+            # If background fails to load, proceed without it
+            pass
 
     colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k']
-    seg_idx = 0
 
-    # Plot segments
-    for seg in segments:
+    for idx, seg in enumerate(traj_segments):
+        if not seg:
+            continue
         xs, ys = zip(*seg)
-        color = colors[seg_idx % len(colors)]
+        color = colors[idx % len(colors)]
         plt.plot(xs, ys, color=color, linewidth=2)
-        seg_idx += 1
 
     # Plot tasks and labels
     for i, task in enumerate(tasks):
         plt.plot(task.position[0], task.position[1], 'ko', zorder=5)
         plt.text(task.position[0] + 0.5, task.position[1] + 0.5,
                  f"T{i+1}", fontsize=8, color="black")
-    #TODO:         #if constrained plot arrow
-
 
     # Plot start/base
     plt.plot(uav_start[0], uav_start[1], 'ks', label='Base', zorder=6)
@@ -67,7 +74,8 @@ def plot_uav_trajectory(
     plt.legend()
     plt.show()
 
-    
+
+
 # Example UAV and tasks
 uav_start = (0.0, 0.0, 0.0)
 tasks = [

@@ -1,19 +1,31 @@
-from matplotlib.animation import FuncAnimation
+from __future__ import annotations
 
-import numpy as np
-import matplotlib.pyplot as plt
-import math
-import matplotlib.image as mpimg
 from typing import List, Tuple, Optional
-from multi_uav_planner.task_models import (
-    Task, PointTask, LineTask, CircleTask, AreaTask, compute_exit_pose)
-from get_trajectory import compute_uav_trajectory_segments
-
-
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 from matplotlib.animation import FuncAnimation
+
+from multi_uav_planner.task_models import Task, PointTask, CircleTask, LineTask, AreaTask
+from trajectory_plotting import compute_uav_trajectory_segments
+import math
+
 
 # Keep a global reference to avoid garbage collection (if used in scripts)
 _last_anim = None
+
+def _flatten_segments(segments_xy: List[List[Tuple[float, float]]]) -> List[Tuple[float, float]]:
+    """Flatten a list of polyline segments into a single trajectory,
+    deduplicating junction points where consecutive segments meet."""
+    traj: List[Tuple[float, float]] = []
+    for seg in segments_xy:
+        if not seg:
+            continue
+        if traj and seg and seg[0] == traj[-1]:
+            traj.extend(seg[1:])
+        else:
+            traj.extend(seg)
+    return traj
+
 
 def animate_uav_trajectory(
     uav_start: Tuple[float, float, float],
@@ -21,7 +33,11 @@ def animate_uav_trajectory(
     turn_radius: float,
     save_path: Optional[str] = None,
     interval: int = 50,
+    samples_per_segment: int = 100,
+    background_image_path: Optional[str] = "src/assets/background.jpg",
+    extent: Optional[Tuple[float, float, float, float]] = None,
 ) -> FuncAnimation:
+
     """
     Animate the UAV trajectory through tasks using the same geometry as
     plot_uav_trajectory. Optionally save to GIF/MP4.
@@ -36,42 +52,40 @@ def animate_uav_trajectory(
     Returns:
         The FuncAnimation object (kept alive by the caller/global).
     """
-    segments = compute_uav_trajectory_segments(uav_start, tasks, turn_radius)
 
-    # Flatten segments into a single trajectory
-    traj_points: List[Tuple[float, float]] = []
-    for seg in segments:
-        # Avoid duplicating the first point of each subsequent segment
-        if traj_points and seg:
-            if seg[0] == traj_points[-1]:
-                traj_points.extend(seg[1:])
-            else:
-                traj_points.extend(seg)
-        else:
-            traj_points.extend(seg)
+    segments_xy = compute_uav_trajectory_segments(
+        uav_start=uav_start,
+        tasks=tasks,
+        turn_radius=turn_radius,
+        samples_per_segment=samples_per_segment,
+    )
 
+    traj_points = _flatten_segments(segments_xy)
+    if not traj_points:
+        raise RuntimeError("No trajectory points generated; check tasks and planners.")
+    
     xs = [p[0] for p in traj_points]
     ys = [p[1] for p in traj_points]
 
-    if not traj_points:
-        raise RuntimeError("No trajectory points generated; check tasks and sampling functions")
-
     fig, ax = plt.subplots(figsize=(8, 8))
+    # Optional background image
+    if background_image_path is not None:
+        try:
+            img = mpimg.imread(background_image_path)
+            if extent is None:
+                extent = (-10.0, 100.0, -10.0, 100.0)
+            ax.imshow(
+                img,
+                extent=list(extent),
+                origin="lower",
+                aspect="equal",
+                alpha=0.5,
+                zorder=0,
+            )
+        except Exception:
+            # Proceed without background if it fails to load
+            pass
 
-    img = mpimg.imread("src/assets/background.jpg")
-
-    # Suppose you want it to cover the mission area [x_min, x_max] × [y_min, y_max]
-    x_min, x_max = -10, 100
-    y_min, y_max = -10, 100
-
-    plt.imshow(
-        img,
-        extent=[x_min, x_max, y_min, y_max],
-        origin="lower",
-        aspect="equal",
-        alpha=0.5,  # transparency; tweak as needed
-        zorder=0
-    )
 
 
     # Plot static elements: tasks and base
@@ -80,8 +94,7 @@ def animate_uav_trajectory(
 
     for i, task in enumerate(tasks):
         ax.plot(task.position[0], task.position[1], 'ko', zorder=5)
-        ax.text(task.position[0] + 0.5, task.position[1] + 0.5,
-                f"T{i+1}", fontsize=8, color="black")
+        ax.text(task.position[0] + 0.5, task.position[1] + 0.5, f"T{i+1}", fontsize=8, color="black")
 
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
@@ -99,7 +112,6 @@ def animate_uav_trajectory(
         return trail_line, marker
 
     def update(frame_idx: int):
-        # Show path up to this frame
         xdata = xs[:frame_idx + 1]
         ydata = ys[:frame_idx + 1]
         trail_line.set_data(xdata, ydata)
@@ -116,13 +128,21 @@ def animate_uav_trajectory(
     )
 
     global _last_anim
-    _last_anim = anim  # keep a reference to prevent garbage collection
+    _last_anim = anim  # prevent GC in some environments
 
     if save_path is not None:
-        if save_path.lower().endswith(".gif"):
-            anim.save(save_path, writer="pillow", fps=100000 // interval)
-        else:
-            anim.save(save_path, writer="ffmpeg", fps=1000 // interval)
+        # Choose writer based on extension
+        sp = save_path.lower()
+        try:
+            if sp.endswith(".gif"):
+                anim.save(save_path, writer="pillow", fps=max(1, 100 // max(1, interval)))
+            elif sp.endswith(".mp4"):
+                anim.save(save_path, writer="ffmpeg", fps=max(1, 100 // max(1, interval)))
+            else:
+                # Fallback: try pillow if unknown extension
+                anim.save(save_path, writer="pillow", fps=max(1, 100 // max(1, interval)))
+        except Exception as e:
+            print(f"Warning: failed to save animation to {save_path}: {e}")
 
     plt.show()
     return anim
