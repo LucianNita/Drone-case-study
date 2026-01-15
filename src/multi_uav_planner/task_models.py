@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Tuple, List, Optional, Literal
 import math
+from multi_uav_planner.path_model import Segment, LineSegment, CurveSegment
 
 # ----- Base Task -----
 @dataclass
@@ -50,11 +51,10 @@ class UAV:
     speed: float  # m/s
     max_turn_radius: float  # meters
     status: Literal[0, 1, 2, 3]  # 0: idle, 1: in-transit, 2: busy, 3: damaged
-    assigned_tasks: Optional[List[Task]] # List of assigned tasks
-    assigned_path: Optional[List[Segment]] # 
-    segment_progress: Optional[float] # percentage of current segment completed (0.0 to 1.0)
-    total_range: float  # meters
-    max_range: float # meters
+    assigned_tasks: Optional[List[Task]]= field(default_factory=list) # List of assigned tasks
+    assigned_path: Optional[List[Segment]]= field(default_factory=list) # 
+    total_range: float = 0.0   # meters
+    max_range: float = 10000.0 # meters
 
 
 
@@ -118,6 +118,6 @@ def compute_exit_pose(task: Task) -> Tuple[float, float, float]:
         else:
             end_x = side_x + task.pass_length * math.cos(heading)
             end_y = side_y + task.pass_length * math.sin(heading)
-        return (end_x, end_y, heading)
+        return (end_x, end_y, end_heading)
     else:
         raise ValueError(f"Unknown task type: {task.type}")
