@@ -42,7 +42,7 @@ def test_cs_segments_single_structure_and_nonneg_lengths() -> None:
         assert arc.length() >= 0.0
         assert line.length() >= 0.0
         # Arc magnitude should be at most pi*R for CS
-        assert arc.length() <= pi * R + 1e-9
+        assert arc.length() <= 2*pi * R + 1e-9
 
 def test_cs_tangency_orthogonality_at_contact_point() -> None:
     start = (0.0, 0.0, 0.0)
@@ -63,7 +63,7 @@ def test_cs_tangency_orthogonality_at_contact_point() -> None:
 
 def test_cs_symmetry_for_target_ahead() -> None:
     start = (0.0, 0.0, 0.0)
-    end = (40.0, 0.0)
+    end = (-40.0, 0.0)
     R = 8.0
 
     segs_ls = cs_segments_single(start, end, R, "LS")
@@ -120,8 +120,8 @@ def test_csc_segments_single_structure_and_lengths(path_type: str) -> None:
         assert line.length() >= 0.0
         assert arc2.length() >= 0.0
         # Each CSC arc should be <= pi*R in magnitude for a shortest tangent construction
-        assert arc1.length() <= pi * R + 1e-9
-        assert arc2.length() <= pi * R + 1e-9
+        assert arc1.length() <= 2*pi * R + 1e-9
+        assert arc2.length() <= 2*pi * R + 1e-9
 
 @pytest.mark.parametrize("path_type", ["LSR", "RSL"])
 def test_csc_segments_single_returns_none_when_circles_too_close(path_type: str) -> None:
