@@ -48,22 +48,17 @@ def cs_segments_single(
     if path_type == "LS":
         theta_M = theta_sf + theta_mf - math.pi / 2.0
         theta_s=theta0-math.pi/2
-        d_theta = (theta_M - theta_s)
+        d_theta = (theta_M - theta_s)%(2*math.pi)
     else:  # "RS"
         theta_M = theta_sf - theta_mf + math.pi / 2.0
         theta_s=theta0+math.pi/2
-        d_theta = (theta_M - theta_s)
+        d_theta = (theta_M - theta_s)%(2*math.pi)-2*math.pi
     
     # Tangent point M on the circle: S + R * [cos θ_M, sin θ_M]. [eq. (23)]
     xM = xs + radius * math.cos(theta_M)
     yM = ys + radius * math.sin(theta_M)
-
-    if d_theta>2*math.pi:
-        d_theta-=2*math.pi
-    if d_theta<-2*math.pi:
-        d_theta+=2*math.pi
     
-    arc = CurveSegment(center=(xs, ys), radius=radius, theta_s=theta_s, d_theta=d_theta)
+    arc = CurveSegment(center=(xs, ys), radius=radius, theta_s=theta_s%(2*math.pi), d_theta=d_theta)
     line = LineSegment(start=(xM, yM), end=(xf, yf))
 
     return [arc, line]
@@ -134,30 +129,30 @@ def csc_segments_single(
         th_M = th_sf - math.pi / 2.0
         th_N = th_sf - math.pi / 2.0
         theta_s1 = th0 - math.pi / 2.0
-        delta1 = (th_M - theta_s1)
+        delta1 = (th_M - theta_s1)%(2*math.pi)
         theta_f2 = thf - math.pi/2
-        delta2 = (theta_f2 - th_N) 
+        delta2 = (theta_f2 - th_N)%(2*math.pi) 
     elif path_type == "RSR":
         th_M = th_sf + math.pi / 2.0
         th_N = th_sf + math.pi / 2.0
         theta_s1 = th0+math.pi/2
-        delta1 = (th_M - theta_s1)
+        delta1 = (th_M - theta_s1)%(2*math.pi)-(2*math.pi)
         theta_f2=thf+math.pi/2
-        delta2 = (theta_f2 - th_N) 
+        delta2 = (theta_f2 - th_N)%(2*math.pi)-(2*math.pi)
     elif path_type == "LSR":
         th_M = th_sf + theta_mn - math.pi / 2.0
         th_N = th_sf + theta_mn + math.pi / 2.0
         theta_s1 = th0 - math.pi/2
-        delta1= th_M-theta_s1
+        delta1= (th_M-theta_s1)%(2*math.pi)
         theta_f2= thf + math.pi/2
-        delta2=(theta_f2 - th_N) 
+        delta2=(theta_f2 - th_N)%(2*math.pi)-(2*math.pi)
     else: # "RSL"
         th_M = th_sf - theta_mn + math.pi / 2.0
         th_N = th_sf - theta_mn - math.pi / 2.0
         theta_s1 = th0 + math.pi/2
-        delta1= th_M-theta_s1
+        delta1= (th_M-theta_s1)%(2*math.pi)-(2*math.pi)
         theta_f2= thf - math.pi/2
-        delta2=(theta_f2 - th_N) 
+        delta2=(theta_f2 - th_N) %(2*math.pi)
 
     # Compute tangent points on the circles
     xM = xs + R * math.cos(th_M)
@@ -165,18 +160,9 @@ def csc_segments_single(
     xN = xf_c + R * math.cos(th_N)
     yN = yf_c + R * math.sin(th_N)
 
-    if delta1>2*math.pi:
-        delta1-=2*math.pi
-    if delta1<-2*math.pi:
-        delta1+=2*math.pi
-    if delta2>2*math.pi:
-        delta2-=2*math.pi
-    if delta2<-2*math.pi:
-        delta2+=2*math.pi
-
-    arc1 = CurveSegment(center=(xs, ys), radius=R, theta_s=theta_s1, d_theta=delta1)
+    arc1 = CurveSegment(center=(xs, ys), radius=R, theta_s=theta_s1%(2*math.pi), d_theta=delta1)
     line = LineSegment(start=(xM, yM), end=(xN, yN))
-    arc2 = CurveSegment(center=(xf_c, yf_c), radius=R, theta_s=th_N, d_theta=delta2)
+    arc2 = CurveSegment(center=(xf_c, yf_c), radius=R, theta_s=th_N%(2*math.pi), d_theta=delta2)
     return [arc1, line, arc2]
 
 def csc_segments_shortest(

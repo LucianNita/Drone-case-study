@@ -1,7 +1,7 @@
 import math
 import numpy as np
 from typing import Set, List, Tuple
-from multi_uav_planner.task_models import Task, UAV
+from multi_uav_planner.task_models import Task, UAV,PointTask
 from multi_uav_planner.path_model import Segment, LineSegment, CurveSegment
 from multi_uav_planner.path_planner import plan_mission_path,plan_path_to_task
 from multi_uav_planner.clustering import cluster_tasks_kmeans,assign_clusters_to_uavs_by_proximity,assign_uav_to_cluster
@@ -10,7 +10,8 @@ def simulate_mission(
     tasks: List[Task],
     uavs: List[UAV],
     dt: float,
-    max_time: float = 1e2
+    max_time: float = 1e2,
+    base: Tuple[float,float,float] = (0,0,0)
 ) -> None:
     """
     Core simulation loop:
@@ -37,11 +38,11 @@ def simulate_mission(
 
     time = 0.0
 
-    while len(unassigned) or len(assigned)>0:
+    while len(unassigned)>0 or len(assigned)>0:
         # -------------------------------
         # 1) Assignment step
         # -------------------------------
-        if idle_uavs and unassigned:
+        if len(idle_uavs)>0 and len(unassigned)>0:
             # For now: greedy one-task-at-a-time assignment.
             # You can later plug IP or cluster-based logic here.
 
@@ -127,6 +128,42 @@ def simulate_mission(
         if time > max_time:
             print("Simulation aborted: time limit exceeded")
             break
+    
+    base_as_task=PointTask(id=0, state=0, type='Point', position=(base[0],base[1]), heading_enforcement=True, heading=base[2])
+
+    for j in list(idle_uavs):
+        uavs[j].status=1
+        idle_uavs.remove(j)
+        transit_uavs.add(j)
+
+        uavs[j].assigned_path=plan_path_to_task(uavs[j],base_as_task)
+        if base_as_task.state==0:
+            base_as_task.state=1
+    
+    while len(transit_uavs)>0:
+        for j in list(transit_uavs):
+            if len(uavs[j].assigned_path)>0 and compute_percentage_along_path(uavs[j].position,uavs[j].assigned_path[0])>=1.0:
+                uavs[j].assigned_path.pop(0)
+                if not uavs[j].assigned_path:
+                    # arrived at base
+                    transit_uavs.remove(j)
+                    idle_uavs.add(j)
+                    uavs[j].status = 0  # idle
+            elif len(uavs[j].assigned_path)<1:
+                transit_uavs.remove(j)
+                idle_uavs.add(j)
+                uavs[j].status = 0  # idle
+            else:
+                pose_update(uavs[j],dt)
+        
+        time += dt
+
+        # Safety break to avoid infinite loops due to logic bugs
+        if time > max_time:
+            print("Simulation aborted: time limit exceeded")
+            break
+    
+
 
 def pose_update(uav: UAV, dt: float) -> None:
     """
@@ -164,7 +201,7 @@ def pose_update(uav: UAV, dt: float) -> None:
         if compute_percentage_along_path(uav.position,seg)+dp>1.0:
             p0=seg.center[0]+seg.radius*math.cos(seg.theta_s+seg.d_theta)
             p1=seg.center[1]+seg.radius*math.sin(seg.theta_s+seg.d_theta)
-            p2=seg.theta_s+seg.d_theta+np.sign(seg.d_theta)*math.pi/2
+            p2=(seg.d_theta+seg.theta_s+np.sign(seg.d_theta)*math.pi/2)%(2*math.pi)
         else:
             p0=seg.center[0]+math.cos(angle_traveled)*(x-seg.center[0])-math.sin(angle_traveled)*(y-seg.center[1])
             p1=seg.center[1]+math.sin(angle_traveled)*(x-seg.center[0])+math.cos(angle_traveled)*(y-seg.center[1])
@@ -176,7 +213,7 @@ def compute_percentage_along_path(
     position: Tuple[float, float, float],
     segment: Segment,
 ) -> float:
-
+    
     x, y, heading = position
 
     if isinstance(segment, LineSegment):
@@ -187,6 +224,10 @@ def compute_percentage_along_path(
         return traveled_length / total_length
     elif isinstance(segment, CurveSegment):
         curr_d_theta=heading-(segment.theta_s+np.sign(segment.d_theta)*math.pi/2)
+        curr_d_theta%=2*math.pi
+
+        if heading==(segment.d_theta+segment.theta_s+np.sign(segment.d_theta)*math.pi/2)%(math.pi):
+            return 1.0
         return curr_d_theta/segment.d_theta #abs might be needed, but in theory not
     else:
         raise TypeError(f"Unsupported segment type: {type(segment)}")
