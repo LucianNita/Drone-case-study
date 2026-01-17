@@ -21,7 +21,7 @@ class ScenarioType(Enum):
 @dataclass
 class ScenarioConfig:
     """Configuration for random mission scenarios."""
-    base=(0.0,0.0,0.0)
+    base: Tuple[float,float,float] = (0.0,0.0,0.0)
 
     area_width: float = 2500.0
     area_height: float = 2500.0
@@ -60,7 +60,7 @@ class Scenario:
     config: ScenarioConfig
     tasks: List[Task]
     uavs: List[UAV]
-    base_pose: Tuple[float, float, float]  # (x, y, heading)
+    base: Tuple[float, float, float]  # (x, y, heading)
     events: List[Event] = field(default_factory=list)
 
 
@@ -84,8 +84,9 @@ def _sample_task_type(config: ScenarioConfig) -> Literal["Point", "Line", "Circl
     return "Area"
 
 
-def _generate_random_task(task_id: int, config: ScenarioConfig) -> Task:
-    ttype = _sample_task_type(config)
+def _generate_random_task(task_id: int, config: ScenarioConfig, ttype: Optional[Literal["Point", "Line", "Circle", "Area"]]) -> Task:
+    if not ttype:
+        ttype = _sample_task_type(config)
     x, y = _random_point(config)
 
     # Choose a random heading
@@ -144,12 +145,12 @@ def _generate_random_task(task_id: int, config: ScenarioConfig) -> Task:
             pass_length=pass_length,
             pass_spacing=pass_spacing,
             num_passes=num_passes,
-            pass_side=side,
+            side=side,
         )
     
-def _generate_uavs(config: ScenarioConfig, base_pose: Tuple[float, float, float]) -> List[UAV]:
+def _generate_uavs(config: ScenarioConfig, base: Tuple[float, float, float]) -> List[UAV]:
     uavs: List[UAV] = []
-    bx, by, btheta = base_pose
+    bx, by, btheta = base
     for i in range(config.n_uavs):
         uavs.append(
             UAV(
@@ -177,7 +178,7 @@ def _generate_events(cfg: ScenarioConfig) -> List[Event]:
         # Create one event per new task, payload is [Task]
         next_id = (cfg.n_tasks + 1)
         for t_ev in times:
-            new_task = _generate_random_task(next_id, cfg)
+            new_task = _generate_random_task(next_id, cfg, "Point")
             next_id += 1
             events.append(Event(time=t_ev, kind=EventType.NEW_TASK, event_id=len(events)+1, payload=[new_task]))
 
@@ -196,9 +197,11 @@ def _generate_events(cfg: ScenarioConfig) -> List[Event]:
     # Sort events by (time, kind, event_id) — your dataclass(order=True) already handles (time, kind, event_id)
     events.sort()
 
+    return events
 
 
-def generate_random_scenario(config: ScenarioConfig) -> Scenario:
+
+def generate_scenario(config: ScenarioConfig) -> Scenario:
     """
     Generate a random multi-UAV mission scenario.
 
@@ -206,13 +209,13 @@ def generate_random_scenario(config: ScenarioConfig) -> Scenario:
     """
     random.seed(config.seed)
 
-    base_pose = config.base
+    base = config.base
 
     tasks: List[Task] = [
         _generate_random_task(task_id=i + 1, config=config)
         for i in range(config.n_tasks)
     ]
-    uavs = _generate_uavs(config, base_pose)
+    uavs = _generate_uavs(config, base)
 
     events = _generate_events(config)
 
@@ -220,7 +223,7 @@ def generate_random_scenario(config: ScenarioConfig) -> Scenario:
         config=config,
         tasks=tasks,
         uavs=uavs,
-        base_pose=base_pose,
+        base=base,
         events=events
     )
 
@@ -230,7 +233,7 @@ def generate_random_scenario(config: ScenarioConfig) -> Scenario:
 def initialize_world(world: World, scenario: Scenario) -> None:
     world.tasks = {t.id: t for t in scenario.tasks}
     world.uavs  = {u.id: u for u in scenario.uavs}
-    world.base = scenario.base_pose
+    world.base = scenario.base
     world.time = 0.0
 
     world.events = scenario.events

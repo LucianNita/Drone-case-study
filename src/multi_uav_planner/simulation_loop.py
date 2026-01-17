@@ -40,7 +40,7 @@ def simulate_mission(
         #------------------------------
         # Step 3: Move in-transit UAVs
         # -----------------------------
-        transit_moved = move_in_transit(world,dt)
+        transit_moved = perform_task(world,dt)
         if on_step: on_step(world, "after_move")
 
         # -------------------------------
