@@ -1,7 +1,15 @@
 from dataclasses import dataclass, field
-from typing import Tuple, List, Optional, Literal
-import math
-from multi_uav_planner.path_model import Segment, LineSegment, CurveSegment
+from typing import Set,Dict,Tuple, List, Optional, Literal, Callable, Union
+from math import pi
+from multi_uav_planner.path_model import Segment
+from enum import IntEnum, auto
+
+# ----- Tolerances -----
+@dataclass(frozen=True)
+class Tolerances:
+    pos: float = 1e-3   # position tolerance
+    ang: float = 1e-3   # angle tolerance (radians)
+    time: float = 1e-6  # time epsilon (if needed)
 
 # ----- Base Task -----
 @dataclass
@@ -51,73 +59,104 @@ class UAV:
     speed: float  # m/s
     max_turn_radius: float  # meters
     status: Literal[0, 1, 2, 3]  # 0: idle, 1: in-transit, 2: busy, 3: damaged
-    assigned_tasks: Optional[List[Task]]= field(default_factory=list) # List of assigned tasks
-    assigned_path: Optional[List[Segment]]= field(default_factory=list) # 
+    assigned_tasks: List[int]= field(default_factory=list) # List of assigned tasks ids
+    assigned_path:List[Segment]= field(default_factory=list) # 
     total_range: float = 0.0   # meters
     max_range: float = 10000.0 # meters
 
 
+class EventType(IntEnum):
+    UAV_DAMAGE = 0
+    NEW_TASK = 1
 
-def compute_task_length(task: Task) -> float:
-    """
-    Compute the length of a task based on its type and attributes.
+Payload = Union[int, list[Task]] #uav_id for UAV_DAMAGE and tasks for NEW_TASK
 
-    Args:
-        task: The task for which to compute the length.
-    Returns:
-        The length of the task in meters.   
-    """
-    if task.type == 'Point':
-        return 0.0
-    elif task.type == 'Line':
-        assert isinstance(task, LineTask)
-        return task.length
-    elif task.type == 'Circle':
-        assert isinstance(task, CircleTask)
-        return 2 * math.pi * task.radius
-    elif task.type == 'Area':
-        assert isinstance(task, AreaTask)
-        return task.num_passes * task.pass_length + (task.num_passes - 1) * math.pi * task.pass_spacing /2 
-    else:
-        raise ValueError(f"Unknown task type: {task.type}")
+@dataclass(order=True)
+class Event:
+    # trigger time 
+    time: float
 
-def compute_exit_pose(task: Task) -> Tuple[float, float, float]:
-    """
-    Compute the exit pose (x, y, heading) after completing the task.
+    type: EventType
+    id: int
 
-    Args:
-        task: The task for which to compute the exit pose.
-    Returns:
-        A tuple representing the exit pose (x, y, heading in radians).
-    """
+    payload: Payload = field(compare=False)
 
-    x, y = task.position
-    
-    if task.type == 'Point':
-        heading = task.heading if task.heading_enforcement else 0.0
-        return (x, y, heading)
-    elif task.type == 'Line':
-        assert isinstance(task, LineTask)
-        heading = task.heading if task.heading_enforcement else 0.0
-        end_x = x + task.length * math.cos(heading)
-        end_y = y + task.length * math.sin(heading)
-        return (end_x, end_y, heading)
-    elif task.type == 'Circle':
-        assert isinstance(task, CircleTask)
-        heading = task.heading if task.heading_enforcement else 0.0
-        return (x, y, heading)
-    elif task.type == 'Area':
-        assert isinstance(task, AreaTask)
-        heading = task.heading if task.heading_enforcement else 0.0
-        end_heading = heading if task.num_passes % 2 == 1 else (heading + math.pi)%(2*math.pi)
-        side_x = x + (task.num_passes - 1) * task.pass_spacing * math.cos(heading + (math.pi/2 if task.side == 'left' else -math.pi/2))
-        side_y = y + (task.num_passes - 1) * task.pass_spacing * math.sin(heading + (math.pi/2 if task.side == 'left' else -math.pi/2))
-        if task.num_passes % 2 == 0:
-            end_x=side_x
-            end_y=side_y
+    def __post_init__(self):
+        if self.kind is EventType.NEW_TASK:
+            if not isinstance(self.payload, list) or not self.payload or not all(isinstance(t, Task) for t in self.payload):
+                raise TypeError("NEW_TASK payload must be a non-empty List[Task].")
+        elif self.kind is EventType.UAV_DAMAGE:
+            if not isinstance(self.payload, int):
+                raise TypeError("UAV_DAMAGE payload must be an int (uav_id).")
         else:
-            end_x = side_x + task.pass_length * math.cos(heading)
-            end_y = side_y + task.pass_length * math.sin(heading)
-        return (end_x, end_y, end_heading)
-    else:
-        raise ValueError(f"Unknown task type: {task.type}")
+            raise ValueError(f"Unknown event kind: {self.kind}")
+        def should_trigger(self, world_time: float) -> bool:
+            return world_time >= self.time
+
+
+
+@dataclass
+class World:
+    tasks: Dict[int, Task]
+    uavs: Dict[int, UAV]
+    base: Tuple[float, float, float] = (0.0, 0.0, 0.0)
+    time: float = 0.0
+
+    events: List[Event] = field(default_factory=list)
+    events_cursor: int = 0
+    
+    unassigned: Set[int] = field(default_factory=set)
+    assigned: Set[int]   = field(default_factory=set)
+    completed: Set[int]  = field(default_factory=set)
+
+    idle_uavs: Set[int]    = field(default_factory=set)
+    transit_uavs: Set[int] = field(default_factory=set)
+    busy_uavs: Set[int]    = field(default_factory=set)
+    damaged_uavs: Set[int] = field(default_factory=set)
+
+    tols: Tolerances = field(default_factory=Tolerances)
+
+    def done(self) -> bool:
+        return not self.unassigned and not self.assigned
+    
+    def is_initialized(self) -> bool:
+        if self.time > 0: 
+            return True
+        
+        if not self.tasks or not self.uavs:
+            return False
+        
+        if not (isinstance(self.base, tuple) and len(self.base) == 3):
+            return False
+
+        task_ids = set(self.tasks.keys())
+        # Tasks partition check
+        if (self.unassigned | self.assigned | self.completed) != task_ids:
+            return False
+        if (self.unassigned & self.assigned) or (self.unassigned & self.completed) or (self.assigned & self.completed):
+            return False
+        
+        uav_ids  = set(self.uavs.keys())
+        # UAVs partition check
+        if (self.idle_uavs | self.transit_uavs | self.busy_uavs | self.damaged_uavs) != uav_ids:
+            return False
+        if (self.idle_uavs & self.transit_uavs) or (self.idle_uavs & self.busy_uavs) or (self.transit_uavs & self.busy_uavs) or (self.damaged_uavs & (self.idle_uavs | self.transit_uavs | self.busy_uavs)):
+            return False
+
+        return True
+    
+    def at_base(self, p_tol: Optional[float] = None, a_tol: Optional[float] = None) -> bool:
+        p_tol = self.tols.pos if p_tol is None else p_tol
+        a_tol = self.tols.ang if a_tol is None else a_tol
+
+        bx,by,bh = self.base
+        for u in self.uavs.values():
+            if u.status ==3:
+                continue
+            x,y,h = u.position
+            if abs(x-bx)>p_tol or abs(y-by)>p_tol:
+                return False
+            if abs((h-bh + pi)%(2*pi)-pi)>a_tol:
+                return False
+        return True
+
