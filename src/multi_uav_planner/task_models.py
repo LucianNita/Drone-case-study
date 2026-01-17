@@ -57,7 +57,7 @@ class UAV:
     id: int
     position: Tuple[float, float, float]  # (x, y, heading)
     speed: float  # m/s
-    max_turn_radius: float  # meters
+    turn_radius: float  # meters
     status: Literal[0, 1, 2, 3]  # 0: idle, 1: in-transit, 2: busy, 3: damaged
     assigned_tasks: List[int]= field(default_factory=list) # List of assigned tasks ids
     assigned_path:List[Segment]= field(default_factory=list) # 
@@ -76,7 +76,7 @@ class Event:
     # trigger time 
     time: float
 
-    type: EventType
+    kind: EventType
     id: int
 
     payload: Payload = field(compare=False)
