@@ -65,3 +65,50 @@ def compute_exit_pose(task: Task) -> Tuple[float, float, float]:
         return (end_x, end_y, end_heading)
     else:
         raise ValueError(f"Unknown task type: {task.type}")
+
+
+
+
+
+
+#################################################
+def compute_uav_path_lengths(uav_paths: Dict[str, Path]) -> Dict[str, float]:
+    return {uav_id: path.length() for uav_id, path in uav_paths.items()}
+
+def summarize_uav_distances(uav_paths: Dict[str, Path]) -> dict:
+    lengths = list(compute_uav_path_lengths(uav_paths).values())
+    if not lengths:
+        return {"total": 0.0, "avg": 0.0, "max": 0.0, "min": 0.0}
+    total = sum(lengths)
+    return {
+        "total": total,
+        "avg": total / len(lengths),
+        "max": max(lengths),
+        "min": min(lengths),
+    }
+
+def log_step_metrics(
+    t: float,
+    uav_paths: Dict[str, Path],
+    unfinished_tasks: List[int],
+    metrics_log: List[dict],
+):
+    lengths = compute_uav_path_lengths(uav_paths)
+    metrics_log.append(
+        {
+            "time": t,
+            "total_distance": sum(lengths.values()),
+            "max_distance": max(lengths.values()) if lengths else 0.0,
+            "unfinished_tasks": len(unfinished_tasks),
+        }
+    )
+
+def plot_metric_over_time(metrics_log: List[dict], key: str):
+    fig, ax = plt.subplots()
+    times = [m["time"] for m in metrics_log]
+    values = [m[key] for m in metrics_log]
+    ax.plot(times, values)
+    ax.set_xlabel("time [s]")
+    ax.set_ylabel(key)
+    ax.grid(True, alpha=0.3)
+    return fig, ax

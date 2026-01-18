@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from typing import Literal, Tuple, Optional, List
-from multi_uav_planner.path_model import Segment, LineSegment, CurveSegment
+from multi_uav_planner.path_model import Segment, LineSegment, CurveSegment, Path
 
 PathType = Literal["LS", "RS"]
     
@@ -11,10 +11,14 @@ def cs_segments_single(
     end: Tuple[float, float],
     radius: float,
     path_type: PathType,
-) -> Optional[List[Segment]]:
+) -> Optional[Path]:
     """
     Build LS or RS as [CurveSegment, LineSegment]. Returns None if d < R (no tangent).
     """
+
+    if radius <= 0.0:
+        raise ValueError("radius must be positive")
+    
     x0, y0, theta0 = start
     xf, yf = end
 
@@ -61,14 +65,14 @@ def cs_segments_single(
     arc = CurveSegment(center=(xs, ys), radius=radius, theta_s=theta_s%(2*math.pi), d_theta=d_theta)
     line = LineSegment(start=(xM, yM), end=(xf, yf))
 
-    return [arc, line]
+    return Path([arc, line])
 
 
 def cs_segments_shortest(
     start: Tuple[float, float, float],
     end: Tuple[float, float],
     radius: float,
-) -> List[Segment]:
+) -> Path:
     """
     Return the shortest CS segments among LS/RS.
     Raises ValueError if both are infeasible.
@@ -76,12 +80,12 @@ def cs_segments_shortest(
     if radius <= 0.0:
         raise ValueError("radius must be positive")
     if (start[0], start[1]) == end:
-        return []
+        return Path([])
     candidates = [cs_segments_single(start, end, radius, pt) for pt in ("LS", "RS")]
-    feasible = [segs for segs in candidates if segs is not None]
+    feasible = [p for p in candidates if p is not None]
     if not feasible:
         raise ValueError("No feasible CS-type Dubins path")
-    return min(feasible, key=lambda segs: sum(s.length() for s in segs))
+    return min(feasible, key=lambda p: p.length())
 
 CSCPathType = Literal["LSL", "LSR", "RSL", "RSR"]
 
@@ -90,7 +94,7 @@ def csc_segments_single(
     end: Tuple[float, float, float],
     R: float,
     path_type: CSCPathType,
-) -> Optional[List[Segment]]:
+) -> Optional[Path]:
     """
     Build one CSC path as [arc1, straight, arc2]. Returns None if infeasible.
     """
@@ -115,7 +119,7 @@ def csc_segments_single(
     th_sf = math.atan2(dy, dx)
 
     inner = path_type in {"LSR", "RSL"}
-    # Check feasibility for LSR/RSL (external tangent requires separation ≥ 2*radius)
+    # For LSR/RSL, we use inner tangents; they only exist if the circle centers are separated by at least 2*R.
     if inner and d < 2 * R:
         return None
 
@@ -163,13 +167,13 @@ def csc_segments_single(
     arc1 = CurveSegment(center=(xs, ys), radius=R, theta_s=theta_s1%(2*math.pi), d_theta=delta1)
     line = LineSegment(start=(xM, yM), end=(xN, yN))
     arc2 = CurveSegment(center=(xf_c, yf_c), radius=R, theta_s=th_N%(2*math.pi), d_theta=delta2)
-    return [arc1, line, arc2]
+    return Path([arc1, line, arc2])
 
 def csc_segments_shortest(
     start: Tuple[float, float, float],
     end: Tuple[float, float, float],
     radius: float,
-) -> List[Segment]:
+) -> Path:
     """
     Return the shortest CSC segments among the four types.
     Raises ValueError if all are infeasible.
@@ -180,7 +184,7 @@ def csc_segments_shortest(
     candidates = [
         csc_segments_single(start, end, radius, pt) for pt in ("LSL", "LSR", "RSL", "RSR")
     ]
-    feasible = [segs for segs in candidates if segs is not None]
+    feasible = [p for p in candidates if p is not None]
     if not feasible:
         raise ValueError("No feasible CSC-type Dubins path")
-    return min(feasible, key=lambda segs: sum(s.length() for s in segs))
+    return min(feasible, key=lambda p: p.length())
