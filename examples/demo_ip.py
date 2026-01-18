@@ -1,5 +1,5 @@
 from multi_uav_planner.task_models import PointTask, UAV
-from multi_uav_planner.ip_solver import solve_multi_uav_ip
+from other_methods.leftovers.ip_solver import solve_multi_uav_ip
 
 def demo_ip():
     tasks = [

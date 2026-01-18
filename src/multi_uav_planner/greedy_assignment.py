@@ -6,31 +6,24 @@ from typing import Dict, List, Tuple
 from.task_models import Task, UAV
 from.dubins import dubins_cs_distance
 from.clustering import TaskClusterResult
+import math
 
 
-@dataclass
-class UAVRoute:
-    """Route (ordered tasks) and total Dubins distance for a single UAV."""
-
-    uav_id: int
-    task_ids: List[int]
-    total_distance: float
-
-
-def _compute_heading(from_pos: Tuple[float, float], to_pos: Tuple[float, float]) -> float:
+def _compute_heading(path:Path) -> float:
     """Heading angle (radians) from from_pos to to_pos."""
-    import math
+    if path[-1] is Line: #
+        dx = path[-1].end[0] - path[-1].start[0]
+        dy = path[-1].end[1] - path[-1].start[1]
+        return math.atan2(dy, dx)
+    else:
+        if path[-1].d_theta>0:
+            return path[-1].theta_s+path[-1].d_theta+math.pi/2
+        elif path[-1].d_theta<0:
+            return path[-1].theta_s+path[-1].d_theta-math.pi/2
 
-    dx = to_pos[0] - from_pos[0]
-    dy = to_pos[1] - from_pos[1]
-    return math.atan2(dy, dx)
 
 
-def plan_route_for_single_uav_greedy(
-    uav: UAV,
-    tasks: List[Task],
-    turn_radius: float,
-) -> UAVRoute:
+def plan_route_for_single_uav_greedy(world:World, uav_id: int, tasks_ids:Set(int)) -> List[int]:
     """
     Greedy Dubins-distance-based route planning for a single UAV
     over a given list of tasks (usually a cluster).
@@ -48,45 +41,45 @@ def plan_route_for_single_uav_greedy(
     """
     import math
 
-    remaining = tasks.copy()
-    current_pos = uav.position
-    current_heading = uav.position[2]
+    current_pos = world.uavs[uav_id].position
 
     route: List[int] = []
-    total_distance = 0.0
 
-    while remaining:
-        best_task: Task | None = None
+    while tasks_ids:
+        best_task: int | None = None
         best_cost = float("inf")
+        best_path = None
 
-        for task in remaining:
-            cost = dubins_cs_distance(
-                (current_pos[0], current_pos[1], current_heading),
-                task.position,
-                turn_radius,
-            )
+        for t in tasks_ids:
+            x,y=world.tasks[t].position
+            if world.tasks[t].heading_enforced:
+                target_pos=(x,y,world.tasks.heading)
+
+            path = plan_path_to_task(current_pos,target_pos,world.uavs[uav_id].turn_radius,(world.tols.pos,world.tols.ang))
+            cost = path.len()
             if cost < best_cost:
                 best_cost = cost
-                best_task = task
+                best_task = t
+                best_path = path
 
         assert best_task is not None
 
-        # Append selected task
-        route.append(best_task.id)
-        total_distance += best_cost
+        route.append(best_task)
 
         # Update current state: position moves to task; heading towards task
-        new_pos = best_task.position
+        x,y = world.tasks[best_task].position
         # Next heading is approximated as direction of the last straight segment.
         # For CS-type path, we don't explicitly track final heading here;
         # we approximate using Euclidean direction from old pos to new pos.
-        current_heading = _compute_heading(current_pos, new_pos)
-        current_pos = new_pos
+        h = _compute_heading(best_path)
+        current_pos = (x,y,h)
 
         # Remove task from remaining
-        remaining = [t for t in remaining if t.id != best_task.id]
+        tasks_ids.remove(t)
+    world.uavs[uav_id].assigned_tasks = route
+    #world.assigned__path
 
-    return UAVRoute(uav_id=uav.id, task_ids=route, total_distance=total_distance)
+    return 
 
 
 def allocate_tasks_with_clustering_greedy(

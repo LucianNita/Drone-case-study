@@ -83,7 +83,7 @@ def _angle_diff(a: float, b: float) -> float:
 def _distance(p: Tuple[float, float], q: Tuple[float, float]) -> float:
     return math.hypot(q[0] - p[0], q[1] - p[1])
 
-def plan_path_to_task(uav: UAV, task: Task) -> List[Segment]:
+def plan_path_to_task(start_pose: Tuple[float, float, float], end_pose: Tuple[float, float, float|None], R: float, tols: Tuple[float,float] = (1e-6,1e-6)) -> List[Segment]:
     """
     Returns the shortest path as segments from UAV pose to the task entry point.
     Policy:
@@ -95,35 +95,32 @@ def plan_path_to_task(uav: UAV, task: Task) -> List[Segment]:
          - Point tasks with unconstrained heading: CS only (shortest).
          - With heading constraint: try CS first (to position); if not acceptable or infeasible, try CSC (shortest).
     """
-    pos_tol = 1e-6
-    ang_tol = 1e-6
     
-    x0, y0, th0 = uav.position
-    xe, ye = task.position
-    entry_heading = task.heading if task.heading_enforcement else None
-    R = uav.max_turn_radius
+    x0, y0, th0 = start_pose
+    xe, ye, the = end_pose
+
     if R <= 0.0:
-        raise ValueError("UAV.max_turn_radius must be positive")
+        raise ValueError("UAV minimum turn radius must be positive!")
 
     # 1) Co-located
-    if _distance((x0, y0), (xe, ye)) <= pos_tol:
-        if entry_heading is None or abs(_angle_diff(th0, entry_heading)) <= ang_tol:
+    if _distance((x0, y0), (xe, ye)) <= tols[0]:
+        if the is None or abs(_angle_diff(th0, the)) <= tols[1]:
             return []
         # adjust heading in place via CSC (degenerate straight)
-        return csc_segments_shortest((x0, y0, th0), (xe, ye, entry_heading), R)
+        return csc_segments_shortest(start_pose, end_pose, R)
 
     # 2) Straight-line feasibility
     dir_to_target = math.atan2(ye - y0, xe - x0)
     # Unconstrained entry: only UAV heading must align
-    if entry_heading is None and abs(_angle_diff(th0, dir_to_target)) <= ang_tol:
+    if the is None and abs(_angle_diff(th0, dir_to_target)) <= tols[1]:
         return [LineSegment(start=(x0, y0), end=(xe, ye))]
     # Constrained entry: both headings must align to the line
-    if entry_heading is not None:
-        if abs(_angle_diff(th0, dir_to_target)) <= ang_tol and abs(_angle_diff(entry_heading, dir_to_target)) <= ang_tol:
+    if the is not None:
+        if abs(_angle_diff(th0, dir_to_target)) <= tols[1] and abs(_angle_diff(the, dir_to_target)) <= tols[1]:
             return [LineSegment(start=(x0, y0), end=(xe, ye))]
 
     # 3) Dubins constructions
-    if task.type == 'Point' and entry_heading is None:
+    if the is None:
         # CS only
         return cs_segments_shortest((x0, y0, th0), (xe, ye), R)
     else: 
@@ -140,13 +137,13 @@ def plan_path_to_task(uav: UAV, task: Task) -> List[Segment]:
                 # CS segments are [CurveSegment, LineSegment]
                 if isinstance(last, LineSegment):
                     line_h = _line_heading(last)
-                    if abs(_angle_diff(line_h, entry_heading)) > ang_tol:
+                    if abs(_angle_diff(line_h, the)) > tols[1]:
                         cs_feasible.pop(i)
                 i-=1
         if cs_feasible:
             return min(cs_feasible, key=lambda segs: sum(s.length() for s in segs))
         
-        return csc_segments_shortest((x0, y0, th0), (xe, ye, entry_heading), R)
+        return csc_segments_shortest((x0, y0, th0), (xe, ye, the), R)
     
 def _line_heading(line: LineSegment) -> float:
     return math.atan2(line.end[1] - line.start[1], line.end[0] - line.start[0])

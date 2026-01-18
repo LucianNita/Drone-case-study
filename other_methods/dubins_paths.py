@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 
 from external_dubins import dubins_path_planner as dpp
-from multi_uav_planner.dubins_csc import dubins_csc_distance
+from multi_uav_planner.dubins import dubins_csc_distance
 
 
 def compare_dubins(

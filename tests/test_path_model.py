@@ -111,8 +111,8 @@ def test_normalize_angle_random_negatives_are_non_negative():
 # ---------- Path tests ----------
 
 def test_path_length_is_sum_of_segments():
-    L = LineSegment((0.0, 0.0), (1.0, 0.0))            # length 1
-    C = CurveSegment(center=(1.0, 0.0), radius=1.0, theta_s=pi, d_theta=pi/2)  # quarter circle, length ~1.570796
+    L = LineSegment((1.0, 1.0), (1.0, 0.0))            # length 1
+    C = CurveSegment(center=(2.0, 0.0), radius=1.0, theta_s=pi, d_theta=pi/2)  # quarter circle, length ~1.570796
     P = Path([L, C])
     expected = 1.0 + (1.0 * (pi/2))
     assert P.length() == pytest.approx(expected)
