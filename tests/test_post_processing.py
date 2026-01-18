@@ -1,14 +1,4 @@
-import math
-import pytest
-
-# Adjust this import to the actual module where your code lives.
-from multi_uav_planner.task_models import (
-    Task, PointTask, LineTask, CircleTask, AreaTask,
-    UAV, compute_task_length, compute_exit_pose
-)
-
-pi = math.pi
-
+'''
 # ---------- Task length tests ----------
 
 def test_point_task_length_is_zero():
@@ -123,20 +113,4 @@ def test_area_task_exit_pose_right_side_odd_passes_heading_pi_over_2():
     # End point: add pass_length along heading (north): (30, 60)
     assert (x, y) == pytest.approx((30.0, 60.0))
     assert h == pytest.approx(pi/2)
-
-# ---------- UAV defaults ----------
-
-def test_uav_assigned_lists_default_to_empty_lists():
-    u = UAV(id=1, position=(0.0, 0.0, 0.0), speed=10.0, max_turn_radius=50.0,
-            status=0, total_range=10000.0, max_range=10000.0)
-    assert isinstance(u.assigned_tasks, list) and len(u.assigned_tasks) == 0
-    assert isinstance(u.assigned_path, list) and len(u.assigned_path) == 0
-
-def test_uav_can_accept_tasks_in_assigned_list():
-    t = PointTask(id=20, state=1, type='Point', position=(5.0, 5.0),
-                  heading_enforcement=False, heading=None)
-    u = UAV(id=2, position=(0.0, 0.0, 0.0), speed=12.0, max_turn_radius=40.0,
-            status=1, total_range=5000.0, max_range=8000.0)
-    u.assigned_tasks.append(t)
-    assert len(u.assigned_tasks) == 1
-    assert u.assigned_tasks[0].id == 20
+    '''

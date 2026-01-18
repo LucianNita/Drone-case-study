@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
-from typing import Set,Dict,Tuple, List, Optional, Literal, Callable, Union
+from typing import Set,Dict,Tuple, List, Optional, Literal, Union
 from math import pi
-from multi_uav_planner.path_model import Segment
+from multi_uav_planner.path_model import Path
 from enum import IntEnum, auto
 
 # ----- Tolerances -----
@@ -15,11 +15,11 @@ class Tolerances:
 @dataclass
 class Task:
     id: int
-    state: Literal[0, 1, 2]  # 0: unassigned, 1: assigned, 2: completed
-    type: Literal['Point', 'Line', 'Circle', 'Area']
     position: Tuple[float, float]  # (x, y) coordinates
-    heading_enforcement: bool  # 0 if unconstrained, 1 if constrained #False by default
-    heading: Optional[float]   # Heading in radians (if enforced) #None if not enforced
+    
+    state: Literal[0, 1, 2]  = 0 # 0: unassigned, 1: assigned, 2: completed
+    heading_enforcement: bool = False  # 0 if unconstrained, 1 if constrained #False by default
+    heading: Optional[float] = None    # Heading in radians (if enforced) #None if not enforced
 
 # ----- Point Task -----
 @dataclass
@@ -30,20 +30,20 @@ class PointTask(Task):
 # ----- Line Task -----
 @dataclass
 class LineTask(Task):
-    length: float  # Length of the line in meters
+    length: float  = 10.0 # Length of the line in meters
 
 # ----- Circle Task -----
 @dataclass
 class CircleTask(Task):
-    radius: float  # Radius of the circle in meters
+    radius: float  = 10.0 # Radius of the circle in meters
     side: Literal['left', 'right'] = 'left'  # Direction of the circle
 
 # ----- Area Task -----
 @dataclass
 class AreaTask(Task):
-    pass_length: float   # Length of each pass in meters
-    pass_spacing: float  # Spacing between passes in meters
-    num_passes: int = 3  # Number of passes required to cover area
+    pass_length: float = 10.0  # Length of each pass in meters
+    pass_spacing: float = 1.0  # Spacing between passes in meters
+    num_passes: int = 3        # Number of passes required to cover area
     side: Literal['left', 'right'] = 'left'  # Side of the first pass
 
 
@@ -55,13 +55,13 @@ class UAV:
     Represents the state and capabilities of a UAV.
     """
     id: int
-    position: Tuple[float, float, float]  # (x, y, heading)
-    speed: float  # m/s
-    turn_radius: float  # meters
-    status: Literal[0, 1, 2, 3]  # 0: idle, 1: in-transit, 2: busy, 3: damaged
-    assigned_tasks: List[int]= field(default_factory=list) # List of assigned tasks ids
-    assigned_path:List[Segment]= field(default_factory=list) # 
-    total_range: float = 0.0   # meters
+    position: Tuple[float, float, float] = (0.0,0.0,0.0) # (x, y, heading)
+    speed: float = 17.5 # m/s
+    turn_radius: float = 80.0 # meters
+    state: Literal[0, 1, 2, 3] = 0 # 0: idle, 1: in-transit, 2: busy, 3: damaged
+    assigned_tasks: List[int] = field(default_factory=list) # List of assigned tasks ids
+    assigned_path:Path = field(default_factory=lambda: Path([])) 
+    current_range: float = 0.0   # meters
     max_range: float = 10000.0 # meters
 
 
@@ -83,15 +83,20 @@ class Event:
 
     def __post_init__(self):
         if self.kind is EventType.NEW_TASK:
-            if not isinstance(self.payload, list) or not self.payload or not all(isinstance(t, Task) for t in self.payload):
+            if (
+                not isinstance(self.payload, list)
+                or not self.payload
+                or not all(isinstance(t, Task) for t in self.payload)
+            ):
                 raise TypeError("NEW_TASK payload must be a non-empty List[Task].")
         elif self.kind is EventType.UAV_DAMAGE:
             if not isinstance(self.payload, int):
                 raise TypeError("UAV_DAMAGE payload must be an int (uav_id).")
         else:
             raise ValueError(f"Unknown event kind: {self.kind}")
-        def should_trigger(self, world_time: float) -> bool:
-            return world_time >= self.time
+
+    def should_trigger(self, world_time: float) -> bool:
+        return world_time >= self.time
 
 
 
@@ -151,7 +156,7 @@ class World:
 
         bx,by,bh = self.base
         for u in self.uavs.values():
-            if u.status ==3:
+            if u.state == 3:
                 continue
             x,y,h = u.position
             if abs(x-bx)>p_tol or abs(y-by)>p_tol:
