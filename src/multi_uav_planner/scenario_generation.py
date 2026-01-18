@@ -7,10 +7,11 @@ import math
 import random
 from enum import Enum
 
-from multi_uav_planner.task_models import (
+from multi_uav_planner.world_models import (
     Task, PointTask, LineTask, CircleTask, AreaTask,
     UAV, World, Tolerances, Event, EventType
 )
+from multi_uav_planner.path_model import Path
 
 class ScenarioType(Enum):
     NONE = "none"
@@ -84,7 +85,7 @@ def _sample_task_type(config: ScenarioConfig) -> Literal["Point", "Line", "Circl
     return "Area"
 
 
-def _generate_random_task(task_id: int, config: ScenarioConfig, ttype: Optional[Literal["Point", "Line", "Circle", "Area"]]) -> Task:
+def _generate_random_task(task_id: int, config: ScenarioConfig, ttype: Optional[Literal["Point", "Line", "Circle", "Area"]] = None) -> Task:
     if not ttype:
         ttype = _sample_task_type(config)
     x, y = _random_point(config)
@@ -97,9 +98,8 @@ def _generate_random_task(task_id: int, config: ScenarioConfig, ttype: Optional[
         heading_enforcement = random.random() < 0.3  # 30% constrained points
         return PointTask(
             id=task_id,
-            state=0,
-            type="Point",
             position=(x, y),
+            state=0,
             heading_enforcement=heading_enforcement,
             heading=heading if heading_enforcement else None,
         )
@@ -109,7 +109,6 @@ def _generate_random_task(task_id: int, config: ScenarioConfig, ttype: Optional[
         return LineTask(
             id=task_id,
             state=0,
-            type="Line",
             position=(x, y),
             heading_enforcement=heading_enforcement,
             heading=heading,
@@ -122,7 +121,6 @@ def _generate_random_task(task_id: int, config: ScenarioConfig, ttype: Optional[
         return CircleTask(
             id=task_id,
             state=0,
-            type="Circle",
             position=(x, y),
             heading_enforcement=heading_enforcement,
             heading=heading,
@@ -138,7 +136,6 @@ def _generate_random_task(task_id: int, config: ScenarioConfig, ttype: Optional[
         return AreaTask(
             id=task_id,
             state=0,
-            type="Area",
             position=(x, y),
             heading_enforcement=heading_enforcement,
             heading=heading,
@@ -158,10 +155,10 @@ def _generate_uavs(config: ScenarioConfig, base: Tuple[float, float, float]) -> 
                 position=(bx, by, btheta),
                 speed=config.uav_speed,
                 turn_radius=config.turn_radius,
-                status=0,
+                state=0,
                 assigned_tasks=[],
-                assigned_path=[],
-                total_range=config.total_range,
+                assigned_path=Path([]),
+                current_range=config.total_range,
                 max_range=config.max_range,
             )
         )
@@ -169,6 +166,9 @@ def _generate_uavs(config: ScenarioConfig, base: Tuple[float, float, float]) -> 
 
 def _generate_events(cfg: ScenarioConfig) -> List[Event]:
     events: List[Event] = []
+
+    if cfg.n_new_task < 0 or cfg.n_damage < 0:
+        raise ValueError("n_new_task and n_damage must be non-negative")
 
     if cfg.scenario_type in (ScenarioType.NEW_TASKS, ScenarioType.BOTH):
         nt = cfg.n_new_task
@@ -180,7 +180,7 @@ def _generate_events(cfg: ScenarioConfig) -> List[Event]:
         for t_ev in times:
             new_task = _generate_random_task(next_id, cfg, "Point")
             next_id += 1
-            events.append(Event(time=t_ev, kind=EventType.NEW_TASK, event_id=len(events)+1, payload=[new_task]))
+            events.append(Event(time=t_ev, kind=EventType.NEW_TASK, id=len(events)+1, payload=[new_task]))
 
     if cfg.scenario_type in (ScenarioType.UAV_DAMAGE, ScenarioType.BOTH):
         if cfg.n_damage>=cfg.n_uavs:
@@ -192,7 +192,7 @@ def _generate_events(cfg: ScenarioConfig) -> List[Event]:
         # Unique UAV ids
         uav_ids = random.sample([i for i in range(1,cfg.n_uavs+1)], nd)
         for t_ev, uid in zip(times, uav_ids):
-            events.append(Event(time=t_ev, kind=EventType.UAV_DAMAGE, event_id=len(events)+1, payload=uid))
+            events.append(Event(time=t_ev, kind=EventType.UAV_DAMAGE, id=len(events)+1, payload=uid))
 
     # Sort events by (time, kind, event_id) — your dataclass(order=True) already handles (time, kind, event_id)
     events.sort()
@@ -252,12 +252,13 @@ def initialize_world(world: World, scenario: Scenario) -> None:
 
     for uid, u in world.uavs.items():
         u.assigned_tasks = list(u.assigned_tasks)
-        u.assigned_path  = list(u.assigned_path)
-        if u.status == 0: world.idle_uavs.add(uid)
-        elif u.status == 1: world.transit_uavs.add(uid)
-        elif u.status == 2: world.busy_uavs.add(uid)
-        elif u.status == 3: world.damaged_uavs.add(uid)
-        else: raise ValueError(f"UAV {uid} has unknown status {u.status}")
+        if not isinstance(u.assigned_path, Path):
+            u.assigned_path = Path(list(u.assigned_path))
+        if u.state == 0: world.idle_uavs.add(uid)
+        elif u.state == 1: world.transit_uavs.add(uid)
+        elif u.state == 2: world.busy_uavs.add(uid)
+        elif u.state == 3: world.damaged_uavs.add(uid)
+        else: raise ValueError(f"UAV {uid} has unknown status {u.state}")
 
     assert world.unassigned | world.assigned | world.completed == set(world.tasks.keys())
     assert world.idle_uavs | world.transit_uavs | world.busy_uavs | world.damaged_uavs == set(world.uavs.keys())

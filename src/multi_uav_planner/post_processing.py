@@ -112,3 +112,63 @@ def plot_metric_over_time(metrics_log: List[dict], key: str):
     ax.set_ylabel(key)
     ax.grid(True, alpha=0.3)
     return fig, ax
+
+
+from dataclasses import asdict
+
+def log_step_metrics(world: World, metrics_log: List[dict]):
+    """Call once per simulation step."""
+    # path lengths per UAV
+    uav_lengths = {}
+    from multi_uav_planner.path_model import Path
+    for uid, u in world.uavs.items():
+        p = u.assigned_path
+        if isinstance(p, Path):
+            uav_lengths[uid] = p.length()
+        else:
+            uav_lengths[uid] = 0.0
+
+    metrics_log.append(
+        {
+            "time": world.time,
+            "unassigned": len(world.unassigned),
+            "assigned": len(world.assigned),
+            "completed": len(world.completed),
+            "idle_uavs": len(world.idle_uavs),
+            "transit_uavs": len(world.transit_uavs),
+            "busy_uavs": len(world.busy_uavs),
+            "damaged_uavs": len(world.damaged_uavs),
+            "uav_lengths": uav_lengths,
+            "total_path_length": sum(uav_lengths.values()),
+        }
+    )
+
+def plot_metric_over_time(metrics_log: List[dict], key: str, ax=None):
+    if ax is None:
+        fig, ax = plt.subplots()
+    else:
+        fig = ax.figure
+
+    ts = [m["time"] for m in metrics_log]
+    ys = [m[key] for m in metrics_log]
+    ax.plot(ts, ys)
+    ax.set_xlabel("time [s]")
+    ax.set_ylabel(key)
+    ax.grid(True, alpha=0.3)
+    return fig, ax
+
+def summarize_uav_path_lengths(world: World) -> dict:
+    from multi_uav_planner.path_model import Path
+    lengths = []
+    for u in world.uavs.values():
+        if isinstance(u.assigned_path, Path):
+            lengths.append(u.assigned_path.length())
+    if not lengths:
+        return {"total": 0.0, "avg": 0.0, "max": 0.0, "min": 0.0}
+    total = sum(lengths)
+    return {
+        "total": total,
+        "avg": total / len(lengths),
+        "max": max(lengths),
+        "min": min(lengths),
+    }
