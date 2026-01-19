@@ -88,6 +88,10 @@ def test_uavs_initialized_at_base_with_config_params():
         assert u.position == cfg.base
         assert u.speed == pytest.approx(cfg.uav_speed)
         assert u.turn_radius == pytest.approx(cfg.turn_radius)
+        assert u.cluster == set()
+        assert u.cluster_CoG is None
+        assert u.current_task is None
+        assert u.assigned_path is None
         assert u.current_range == pytest.approx(cfg.total_range)
         assert u.max_range == pytest.approx(cfg.max_range)
         assert u.state == 0  # idle

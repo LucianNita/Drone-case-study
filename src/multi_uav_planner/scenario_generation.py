@@ -19,6 +19,14 @@ class ScenarioType(Enum):
     UAV_DAMAGE = "uav_damage"
     BOTH = "both"
 
+class AlgorithmType(Enum):
+    PRBDD = "PRBDD"
+    RBDD = "RBDD"
+    GBA = "GBA"
+    HBA = "HBA"
+    SA = "SA"
+    AA = "AA"
+
 @dataclass
 class ScenarioConfig:
     """Configuration for random mission scenarios."""
@@ -45,6 +53,9 @@ class ScenarioConfig:
     # Tolerances propagated to world (optional)
     tolerances: Tolerances = Tolerances()
 
+    # Algorithm type
+    alg_type: AlgorithmType = AlgorithmType.PRBDD
+
     # Dynamics
     scenario_type: ScenarioType = ScenarioType.NONE
     n_new_task: int = 0
@@ -63,6 +74,7 @@ class Scenario:
     uavs: List[UAV]
     base: Tuple[float, float, float]  # (x, y, heading)
     events: List[Event] = field(default_factory=list)
+    alg_type: AlgorithmType = AlgorithmType.PRBDD
 
 
 def _random_point(config: ScenarioConfig) -> Tuple[float, float]:
@@ -156,8 +168,6 @@ def _generate_uavs(config: ScenarioConfig, base: Tuple[float, float, float]) -> 
                 speed=config.uav_speed,
                 turn_radius=config.turn_radius,
                 state=0,
-                assigned_tasks=[],
-                assigned_path=Path([]),
                 current_range=config.total_range,
                 max_range=config.max_range,
             )
@@ -219,12 +229,15 @@ def generate_scenario(config: ScenarioConfig) -> Scenario:
 
     events = _generate_events(config)
 
+    alg_type = config.alg_type
+
     return Scenario(
         config=config,
         tasks=tasks,
         uavs=uavs,
         base=base,
-        events=events
+        events=events,
+        alg_type=alg_type,
     )
 
 
@@ -251,9 +264,8 @@ def initialize_world(world: World, scenario: Scenario) -> None:
         else: raise ValueError(f"Task {tid} has unknown state {t.state}")
 
     for uid, u in world.uavs.items():
-        u.assigned_tasks = list(u.assigned_tasks)
-        if not isinstance(u.assigned_path, Path):
-            u.assigned_path = Path(list(u.assigned_path))
+        if u.assigned_path is not None and not isinstance(u.assigned_path, Path):
+            raise TypeError("UAV.assigned_path must be a Path or None")
         if u.state == 0: world.idle_uavs.add(uid)
         elif u.state == 1: world.transit_uavs.add(uid)
         elif u.state == 2: world.busy_uavs.add(uid)
