@@ -21,6 +21,8 @@ class Task:
     heading_enforcement: bool = False  # 0 if unconstrained, 1 if constrained #False by default
     heading: Optional[float] = None    # Heading in radians (if enforced) #None if not enforced
 
+    worked_by_uav: Optional[int] = None
+
 # ----- Point Task -----
 @dataclass
 class PointTask(Task):
@@ -59,8 +61,10 @@ class UAV:
     speed: float = 17.5 # m/s
     turn_radius: float = 80.0 # meters
     state: Literal[0, 1, 2, 3] = 0 # 0: idle, 1: in-transit, 2: busy, 3: damaged
-    assigned_tasks: List[int] = field(default_factory=list) # List of assigned tasks ids
-    assigned_path: List[Path] = field(default_factory=list)
+    cluster: Set[int] = field(default_factory=set) # List of assigned tasks ids
+    cluster_CoG: Tuple[float,float] = None
+    current_task: Optional[int] = None
+    assigned_path: Optional[Path] = None
     current_range: float = 0.0   # meters
     max_range: float = 10000.0 # meters
 

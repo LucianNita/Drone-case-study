@@ -9,7 +9,6 @@ from multi_uav_planner.world_models import (
     World,
 )
 from multi_uav_planner.path_model import Path
-from typing import List
 
 # ---------- Tolerances ----------
 
@@ -31,6 +30,7 @@ def test_base_task_defaults():
     assert t.position == (10.0, 5.0)
     assert t.heading_enforcement is False
     assert t.heading is None
+    assert t.worked_by_uav is None
 
 def test_point_task_inherits_task():
     pt = PointTask(
@@ -40,6 +40,7 @@ def test_point_task_inherits_task():
     )
     assert isinstance(pt, Task)
     assert isinstance(pt, PointTask)
+    assert pt.worked_by_uav is None
 
 def test_line_task_has_length():
     lt = LineTask(
@@ -71,29 +72,53 @@ def test_area_task_fields():
     assert at.side == 'left'
     assert at.state == 0
 
+def test_task_worked_by_uav_can_be_set_and_cleared():
+    t = Task(id=10, position=(0.0, 0.0))
+    assert t.worked_by_uav is None
+    t.worked_by_uav = 3
+    assert t.worked_by_uav == 3
+    t.worked_by_uav = None
+    assert t.worked_by_uav is None
+
 # ---------- UAV ----------
 
-def test_uav_defaults_and_assigned_path_is_path():
-    u = UAV(
-        id=1,
-    )
+def test_uav_defaults_and_assigned_path_type():
+    u = UAV(id=1)
     assert u.id == 1
     assert u.position == (0.0, 0.0, 0.0)
     assert u.speed == pytest.approx(17.5)
     assert u.turn_radius == pytest.approx(80.0)
     assert u.state == 0
-    assert u.assigned_tasks == []
-    assert isinstance(u.assigned_path, list)
-    assert all(isinstance(p, Path) for p in u.assigned_path)
+    assert isinstance(u.cluster, set)
+    assert u.cluster == set()
+    assert u.cluster_CoG is None
+    assert u.current_task is None
+    assert u.assigned_path is None
     assert u.current_range == pytest.approx(0.0)
     assert u.max_range == pytest.approx(10000.0)
 
-def test_uav_assigned_tasks_mutable_list_independent():
-    u1 = UAV(id=1, position=(0,0,0), speed=10, turn_radius=10, state=0)
-    u2 = UAV(id=2, position=(0,0,0), speed=10, turn_radius=10, state=0)
-    u1.assigned_tasks.append(42)
-    assert u1.assigned_tasks == [42]
-    assert u2.assigned_tasks == []
+def test_uav_cluster_is_mutable_and_independent_per_instance():
+    u1 = UAV(id=1)
+    u2 = UAV(id=2)
+    u1.cluster.add(42)
+    assert u1.cluster == {42}
+    assert u2.cluster == set()
+
+def test_uav_assigned_path_can_be_set_independently():
+    u1 = UAV(id=1)
+    u2 = UAV(id=2)
+
+    p1 = Path([])
+    p2 = Path([])
+
+    u1.assigned_path = p1
+    u2.assigned_path = p2
+
+    assert isinstance(u1.assigned_path, Path)
+    assert isinstance(u2.assigned_path, Path)
+    assert u1.assigned_path is p1
+    assert u2.assigned_path is p2
+    assert u1.assigned_path is not u2.assigned_path
 
 def test_uav_range_initialization_and_update():
     u = UAV(
@@ -110,14 +135,13 @@ def test_uav_range_initialization_and_update():
     u.current_range += 123.45
     assert u.current_range == pytest.approx(123.45)
 
-def test_uav_assigned_path_is_independent_instance():
-    u1 = UAV(id=1, position=(0,0,0), speed=10, turn_radius=10, state=0)
-    u2 = UAV(id=2, position=(0,0,0), speed=10, turn_radius=10, state=0)
-    # Mutate path for u1
-    p = Path([])
-    u1.assigned_path.append(p)
-    assert len(u1.assigned_path) == 1
-    assert len(u2.assigned_path) == 0
+def test_uav_current_task_field():
+    u = UAV(id=1)
+    assert u.current_task is None
+    u.current_task = 7
+    assert u.current_task == 7
+    u.current_task = None
+    assert u.current_task is None
 
 # ---------- Event ----------
 
