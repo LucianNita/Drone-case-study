@@ -2,7 +2,7 @@ from math import hypot
 from multi_uav_planner.path_planner import plan_path_to_task
 from multi_uav_planner.world_models import EventType, World,Task
 from multi_uav_planner.path_model import Path
-from typing import Optional 
+from typing import Optional, List
 
 def check_for_events(world:World) -> None:
     while world.events_cursor<len(world.events):
@@ -30,7 +30,7 @@ def _apply_uav_damage(world:World, id:int) -> None:
     world.busy_uavs.discard(id)
     world.damaged_uavs.add(id)
 
-    u.assigned_path = Path([])
+    u.assigned_path = []
 
     while u.assigned_tasks:
         t_id = u.assigned_tasks.pop(0)
@@ -117,11 +117,11 @@ def assign_task_to_cluster(world: World, task_id: int) -> Optional[int]:
         else:
             end_pose = (xt, yt, None)
 
-        u.assigned_path = plan_path_to_task(
+        u.assigned_path = [plan_path_to_task(
             start_pose=u.position,
             end_pose=end_pose,
             R=u.turn_radius,
             tols=(world.tols.pos, world.tols.ang),
-        )
+        )]
 
     return best_uid

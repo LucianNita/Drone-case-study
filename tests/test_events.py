@@ -164,8 +164,8 @@ def test_uav_damage_clears_assigned_path_and_requeues_tasks():
 
     assert world.uavs[1].state == 3
     assert world.uavs[1].assigned_tasks == []
-    assert isinstance(world.uavs[1].assigned_path, Path)
-    assert len(world.uavs[1].assigned_path.segments) == 0
+    assert isinstance(world.uavs[1].assigned_path, list)
+    assert len(world.uavs[1].assigned_path) == 0
 
     # Tasks should be moved back to unassigned if not completed
     assert world.unassigned == {1, 2}
@@ -309,7 +309,7 @@ def test_assign_task_to_cluster_plans_path_for_idle_uav_first_task():
     u = world.uavs[1]
     u.state = 0
     u.assigned_tasks = []
-    u.assigned_path = Path([])
+    u.assigned_path = []
 
     uid = assign_task_to_cluster(world, 10)
     assert uid == 1
@@ -319,11 +319,11 @@ def test_assign_task_to_cluster_plans_path_for_idle_uav_first_task():
     assert 1 in world.transit_uavs
     assert 1 not in world.idle_uavs
     assert u.assigned_tasks == [10]
-    assert isinstance(u.assigned_path, Path)
+    assert isinstance(u.assigned_path, list)
 
     # Path should have positive length and end at task position (within tol)
-    assert u.assigned_path.length() > 0.0
-    end_pt = u.assigned_path.segments[-1].end_point()
+    assert u.assigned_path[0].length() > 0.0
+    end_pt = u.assigned_path[0].segments[-1].end_point()
     assert end_pt[0] == pytest.approx(t.position[0], abs=1e-2)
     assert end_pt[1] == pytest.approx(t.position[1], abs=1e-2)
 
