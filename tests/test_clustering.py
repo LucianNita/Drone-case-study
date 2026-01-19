@@ -1,6 +1,3 @@
-# tests/test_clustering.py
-
-import math
 import numpy as np
 import pytest
 
@@ -11,14 +8,13 @@ from multi_uav_planner.clustering import (
     assign_clusters_to_uavs_by_proximity,
     assign_uav_to_cluster,
 )
-from multi_uav_planner.task_models import UAV, PointTask, Task
+from multi_uav_planner.world_models import UAV, PointTask, Task
 
 def make_task(task_id: int, x: float, y: float) -> PointTask:
     # Minimal PointTask with required fields
     return PointTask(
         id=task_id,
         state=0,
-        type='Point',
         position=(x, y),
         heading_enforcement=False,
         heading=None,
@@ -29,9 +25,9 @@ def make_uav(uav_id: int, x: float, y: float, theta: float = 0.0) -> UAV:
         id=uav_id,
         position=(x, y, theta),
         speed=10.0,
-        max_turn_radius=10.0,
-        status=0,
-        total_range=10000.0,
+        turn_radius=10.0,
+        state=0,
+        current_range=0.0,
         max_range=10000.0,
     )
 
@@ -58,10 +54,14 @@ def test_cluster_tasks_kmeans_partitions_two_well_separated_groups():
     assert isinstance(res, TaskClusterResult)
     assert res.centers.shape == (2, 2)
     # Each cluster should contain 2 tasks
+    assert set(res.clusters.keys()) == {0, 1}
     sizes = sorted(len(v) for v in res.clusters.values())
     assert sizes == [2, 2]
     # All tasks assigned
     assert set(res.task_to_cluster.keys()) == {1, 2, 3, 4}
+    # And cluster lists contain all tasks
+    all_ids = {t.id for cl in res.clusters.values() for t in cl}
+    assert all_ids == {1, 2, 3, 4}
 
 def test_cluster_tasks_kmeans_reproducible_with_random_state():
     tasks = [make_task(i, float(i), 0.0) for i in range(6)]
@@ -88,6 +88,7 @@ def test_assign_clusters_to_uavs_by_proximity_two_clusters_two_uavs():
     mapping = assign_clusters_to_uavs_by_proximity(uavs, centers)
     # Each cluster assigned to nearest UAV id
     assert set(mapping.keys()) == {0, 1}
+    assert set(mapping.values()) == {10, 20}
     # Cluster 0 near uav id 10; cluster 1 near uav id 20
     assert mapping[0] == 10
     assert mapping[1] == 20
@@ -126,8 +127,11 @@ def test_assign_uav_to_cluster_builds_uav_to_task_objects_mapping():
 
     # Elements are Task instances
     for tids in uav_to_tasks.values():
-        assert all(isinstance(t, Task) for t in tids)
+        assert isinstance(tids, set)
+        assert all(isinstance(t, int) for t in tids)
 
     # Every task id appears exactly once across all UAV assignments
-    all_assigned_ids = sorted(t.id for tids in uav_to_tasks.values() for t in tids)
+    all_assigned_ids = sorted(id_ for s in uav_to_tasks.values() for id_ in s)
     assert all_assigned_ids == [1, 2, 3, 4]
+    assert uav_to_tasks[100]=={1,2}
+    assert uav_to_tasks[200]=={3,4}

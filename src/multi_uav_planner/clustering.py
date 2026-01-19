@@ -7,7 +7,7 @@ from typing import List, Dict
 import numpy as np
 from sklearn.cluster import KMeans
 
-from.task_models import Task, UAV
+from .world_models import Task, UAV
 
 
 @dataclass
@@ -58,10 +58,13 @@ def cluster_tasks_kmeans(
         ValueError:
             If n_clusters <= 0 or n_clusters > number of tasks.
     """
+    if not tasks:
+        raise ValueError("tasks list must be non-empty")
     if n_clusters <= 0:
         raise ValueError("n_clusters must be positive")
     if n_clusters > len(tasks):
         raise ValueError("n_clusters cannot exceed number of tasks")
+
 
     X = _extract_task_positions(tasks)
 
@@ -111,6 +114,10 @@ def assign_clusters_to_uavs_by_proximity(
         ValueError:
             If the number of clusters differs from the number of UAVs.
     """
+    cluster_centers = np.asarray(cluster_centers, dtype=float)
+    if cluster_centers.ndim != 2 or cluster_centers.shape[1] != 2:
+        raise ValueError("cluster_centers must have shape (K, 2)")
+    
     K = cluster_centers.shape[0]
     if K != len(uavs):
         raise ValueError(
@@ -152,7 +159,10 @@ def assign_clusters_to_uavs_by_proximity(
 
     return cluster_to_uav
 
-def assign_uav_to_cluster(clustering_result,cluster_to_uav):
+def assign_uav_to_cluster(
+    clustering_result: TaskClusterResult,
+    cluster_to_uav: Dict[int, int],
+) -> Dict[int, Set[int]]:
     """
     Convert a cluster->UAV assignment into a UAV->task_ids mapping.
 
@@ -161,10 +171,14 @@ def assign_uav_to_cluster(clustering_result,cluster_to_uav):
         cluster_to_uav: Mapping from cluster index -> UAV id.
 
     Returns:
-        Mapping from UAV id -> list of task ids assigned to that UAV.
+        Mapping from UAV id -> set of task ids assigned to that UAV.
     """
-    A: Dict[int, List[int]]={}
+    A: Dict[int, Set[int]] = {}
     for cluster_idx, cluster_tasks in clustering_result.clusters.items():
-            uav_id = cluster_to_uav[cluster_idx]
-            A[uav_id]=[t for t in cluster_tasks]
+        if cluster_idx not in cluster_to_uav:
+            continue  # or raise, depending on how strict you want to be
+        uav_id = cluster_to_uav[cluster_idx]
+        if uav_id not in A:
+            A[uav_id] = set()
+        A[uav_id].update(t.id for t in cluster_tasks)
     return A
