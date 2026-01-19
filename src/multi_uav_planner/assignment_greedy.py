@@ -1,148 +1,136 @@
-from __future__ import annotations
-from typing import Dict, List, Set
-from.world_models import World
-from.path_model import Path, LineSegment, CurveSegment   # if you want type checks
-from.path_planner import plan_path_to_task               # or your chosen path fn
-from.clustering import TaskClusterResult
+from multi_uav_planner.world_models import World
+from multi_uav_planner.scenario_generation import AlgorithmType
+from multi_uav_planner.path_planner import plan_path_to_task
 import math
+from typing import Iterable,List,Dict,Optional
 
-def _compute_heading(path: Path) -> float:
-    """
-    Approximate final heading of a path: use last segment's direction.
-    """
-    if not path.segments:
-        raise ValueError("Cannot compute heading of an empty Path")
+def assignment(world: World, algo: AlgorithmType = AlgorithmType.PRBDD) -> Optional[Dict[int,int]]:
+    assign_map: Dict[int, int] = {}
+    if algo is AlgorithmType.PRBDD:
+        for uav in list(world.idle_uavs):
+            C,_, task_ids_list, _, _ = compute_cost(world, {uav}, world.uavs[uav].cluster,True)
+            M=greedy_global_assign_int(C, -1)
+            tid=task_ids_list[M[0]]
 
-    last_seg = path.segments[-1]
+            if tid != -1:
+                world.uavs[uav].current_task=tid
+                world.uavs[uav].assigned_path=plan_path_to_task(world, uav, tid)
+                world.idle_uavs.remove(uav)
+                world.transit_uavs.add(uav)
+                world.unassigned.remove(tid)
+                world.assigned.add(tid)
+                assign_map[uav] = tid
+    elif algo is AlgorithmType.RBDD:
+        C, _, task_ids_list, uav_index, _ = compute_cost(world, world.idle_uavs, world.unassigned,True)
+        M=greedy_global_assign_int(C, -1)
+        for uav in list(world.idle_uavs):
+            tid=task_ids_list[M[uav_index[uav]]]
 
-    if isinstance(last_seg, LineSegment):
-        dx = last_seg.end[0] - last_seg.start[0]
-        dy = last_seg.end[1] - last_seg.start[1]
-        return math.atan2(dy, dx)
-    elif isinstance(last_seg, CurveSegment):
-        theta_end = last_seg.theta_s + last_seg.d_theta
-        # Heading tangent to circle: radius angle +/- pi/2
-        if last_seg.d_theta > 0:
-            return (theta_end + math.pi / 2.0)%(2*math.pi)
-        elif last_seg.d_theta < 0:
-            return (theta_end - math.pi / 2.0)%(2*math.pi)
-        else:
-            # Zero sweep; fall back to radius angle
-            return theta_end%(2*math.pi)
+            if tid != -1:
+                world.uavs[uav].current_task=tid
+                world.uavs[uav].assigned_path=plan_path_to_task(world, uav, tid)
+                world.idle_uavs.remove(uav)
+                world.transit_uavs.add(uav)
+                world.unassigned.remove(tid)
+                world.assigned.add(tid)
+                assign_map[uav] = tid
+    elif algo is AlgorithmType.GBA:
+        C, _, task_ids_list, uav_index, _ = compute_cost(world, world.idle_uavs, world.unassigned,False)
+        M=greedy_global_assign_int(C, -1)
+        for uav in list(world.idle_uavs):
+            tid=task_ids_list[M[uav_index[uav]]]
+
+            if tid != -1:
+                world.uavs[uav].current_task=tid
+                world.uavs[uav].assigned_path=plan_path_to_task(world, uav, tid)
+                world.idle_uavs.remove(uav)
+                world.transit_uavs.add(uav)
+                world.unassigned.remove(tid)
+                world.assigned.add(tid)
+                assign_map[uav] = tid
     else:
-        raise TypeError(f"Unsupported segment type: {type(last_seg)}")
+        pass #Not yet implemented, ok for now 
+    return assign_map
 
 
-def plan_route_for_single_uav_greedy(world:World, uav_id: int, tasks_ids:Set[int]) -> List[int]:
+def compute_cost(
+    world: World,
+    uav_ids: Iterable[int],
+    task_ids: Iterable[int],
+    Dubins: bool,
+):
     """
-    Greedy Dubins-distance-based route planning for a single UAV
-    over a given list of tasks (usually a cluster).
-
-    Algorithm:
-      - Start from the UAV's current state (position + heading).
-      - While unassigned tasks remain:
-          * For each remaining task, compute Dubins CS distance
-            from current state to the task's position.
-          * Select the task with minimum cost.
-          * Append it to the route and update UAV's state to that task.
-
-    This matches the 'low-complexity and less iterative task allocation'
-    spirit described in Liu et al. (2025).
-    """
-
-    current_pos = world.uavs[uav_id].position
-
-    route: List[int] = []
-    paths: List[Path] = []
-
-    remaining=set(tasks_ids)
-    while remaining:
-        best_task: int | None = None
-        best_cost = float("inf")
-        best_path = None
-
-        for t in remaining:
-            task = world.tasks[t]
-            x, y = task.position
-            if task.heading_enforcement and task.heading is not None:
-                target_pos = (x, y, task.heading)
-            else:
-                target_pos = (x, y, None)
-
-            path = plan_path_to_task(
-                current_pos,
-                target_pos,
-                world.uavs[uav_id].turn_radius,
-                (world.tols.pos, world.tols.ang),
-            )
-            cost = path.length()
-            if cost < best_cost:
-                best_cost = cost
-                best_task = t
-                best_path = path
-
-        assert best_task is not None
-        assert best_path is not None
-
-        route.append(best_task)
-        paths.append(best_path)
-
-
-        # Update current state: position moves to task; heading towards task
-        x,y = world.tasks[best_task].position
-        # Next heading is approximated as direction of the last straight segment.
-        # For CS-type path, we don't explicitly track final heading here;
-        # we approximate using Euclidean direction from old pos to new pos.
-        if best_path.segments:
-            h = _compute_heading(best_path)
-        else:
-            h = world.uavs[uav_id].position[2]
-        current_pos = (x,y,h)
-
-        # Remove task from remaining
-        remaining.remove(best_task)
-
-    world.uavs[uav_id].assigned_tasks = route
-    world.uavs[uav_id].assigned_path = paths
-
-    return route
-
-
-def allocate_tasks_with_clustering_greedy(
-    world:World,
-    clustering_result: TaskClusterResult,
-    cluster_to_uav: Dict[int, int],
-) -> Dict[int, List[int]]:
-    """
-    High-level allocator that:
-      1) Takes precomputed task clusters and cluster->UAV mapping.
-      2) For each UAV, plans a greedy Dubins-based route inside its cluster.
-
-    Args:
-        world: state of the simulation world.
-        clustering_result: result from cluster_tasks_kmeans().
-        cluster_to_uav: mapping cluster index -> UAV id.
-
     Returns:
-        Mapping from UAV id -> UAVRoute.
+      C           : list[list[float]] cost matrix
+      uav_ids_list: list[int]   (row index -> uav_id)
+      task_ids_list: list[int]  (col index -> task_id)
+      uav_index   : dict[int, int]   (uav_id  -> row)
+      task_index  : dict[int, int]   (task_id -> col)
     """
-   
-    uav_routes: Dict[int, List[int]] = {}
+    uav_ids_list = list(uav_ids)
+    task_ids_list = list(task_ids)
 
-    for cluster_idx, tasks_in_cluster in clustering_result.clusters.items():
+    uav_index = {uid: i for i, uid in enumerate(uav_ids_list)}
+    task_index = {tid: j for j, tid in enumerate(task_ids_list)}
 
-        uav_id = cluster_to_uav[cluster_idx]
-        task_ids = set(t.id for t in tasks_in_cluster)
+    n = len(uav_ids_list)
+    m = len(task_ids_list)
 
-        if not tasks_in_cluster:
-            uav_routes[uav_id] = []
-            continue
+    C = [[0.0 for _ in range(m)] for _ in range(n)]
 
-        route = plan_route_for_single_uav_greedy(
-            world=world,
-            uav_id=uav_id,
-            tasks_ids=task_ids,
-        )
-        uav_routes[uav_id] = route
+    for uid in uav_ids_list:
+        i = uav_index[uid]
+        for tid in task_ids_list:
+            j = task_index[tid]
+            if Dubins:
+                p = plan_path_to_task(world, uid, tid)
+                C[i][j] = p.length()
+            else:
+                xs, ys = world.uavs[uid].position
+                xe, ye = world.tasks[tid].position
+                C[i][j] = math.hypot(xe - xs, ye - ys)
 
-    return uav_routes
+    return C, uav_ids_list, task_ids_list, uav_index, task_index
+
+
+def greedy_global_assign_int(
+    cost: List[List[float]],
+    unassigned_value: int = -1
+) -> Dict[int, int]:
+    n = len(cost)
+    if n == 0:
+        return {}
+    m = len(cost[0])
+
+    assignment: Dict[int, int] = {i: unassigned_value for i in range(n)}
+    remaining_workers = set(range(n))
+    remaining_tasks = set(range(m))
+
+    while remaining_workers and remaining_tasks:
+        best_i = best_j = None
+        best_cost = math.inf
+
+        # find globally cheapest (worker, task) among remaining
+        for i in remaining_workers:
+            row = cost[i]
+            for j in remaining_tasks:
+                c = row[j]
+                if c < best_cost:
+                    best_cost = c
+                    best_i, best_j = i, j
+
+        # assign that pair
+        assignment[best_i] = best_j
+        remaining_workers.remove(best_i)
+        remaining_tasks.remove(best_j)
+
+    # workers left in remaining_workers keep unassigned_value
+    return assignment
+
+            
+
+'''            world.uavs[uav].cluster.remove(tid)
+            xc,yc=world.uavs[uav].cluster_CoG
+            xc=(xc*(len(world.uavs[uav].cluster)+1) - world.tasks[tid].position[0])/len(world.uavs[uav].cluster)
+            yc=(yc*(len(world.uavs[uav].cluster)+1) - world.tasks[tid].position[1])/len(world.uavs[uav].cluster)
+            world.uavs[uav].cluster_CoG = (xc,yc)'''

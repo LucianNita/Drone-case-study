@@ -1,17 +1,17 @@
-from typing import List, Tuple, Optional, Literal
+from typing import List, Tuple, Optional
 import math
 from numpy import sign as sgn
 
 from multi_uav_planner.path_model import Path, Segment, LineSegment, CurveSegment
-from multi_uav_planner.world_models import UAV, Task, PointTask, LineTask, CircleTask, AreaTask
-from multi_uav_planner.dubins import cs_segments_single, cs_segments_shortest, csc_segments_single, csc_segments_shortest
+from multi_uav_planner.world_models import UAV, Task, PointTask, LineTask, CircleTask, AreaTask, World
+from multi_uav_planner.dubins import cs_segments_single, cs_segments_shortest, csc_segments_shortest
 
 
-def plan_mission_path(uav: UAV, task: Task) -> List[Segment]:
+def plan_mission_path(uav: UAV, task: Task) -> Optional[Path]:
     """
     Returns the coverage path inside the task (list of segments).
     - Point: []
-    - Line: one LineSegment of length task.length along task.heading (or 0 if not enforced)
+    - Line: one LineSegment of length task.length along task.heading
     - Circle: one CurveSegment passing through task.position with a given heading and d_theta = ±2π (left/right)
     - Area: boustrophedon zigzag with straight passes and semicircle turns (radius = spacing/2)
     """
@@ -74,7 +74,7 @@ def plan_mission_path(uav: UAV, task: Task) -> List[Segment]:
         return Path(segs)
 
     else:
-        raise ValueError(f"Unknown task type: {task.type}")
+        raise ValueError(f"Unknown task type: {type(task).__name__}")
     
 
 def _angle_diff(a: float, b: float) -> float:
@@ -83,7 +83,7 @@ def _angle_diff(a: float, b: float) -> float:
 def _distance(p: Tuple[float, float], q: Tuple[float, float]) -> float:
     return math.hypot(q[0] - p[0], q[1] - p[1])
 
-def plan_path_to_task(start_pose: Tuple[float, float, float], end_pose: Tuple[float, float, float|None], R: float, tols: Tuple[float,float] = (1e-6,1e-6)) -> List[Segment]:
+def plan_path_to_task(world: World, uid:int, tid:int) -> Path:
     """
     Returns the shortest path as segments from UAV pose to the task entry point.
     Policy:
@@ -96,27 +96,33 @@ def plan_path_to_task(start_pose: Tuple[float, float, float], end_pose: Tuple[fl
          - With heading constraint: try CS first (to position); if not acceptable or infeasible, try CSC (shortest).
     """
     
-    x0, y0, th0 = start_pose
-    xe, ye, the = end_pose
+    x0, y0, th0 = world.uavs[uid].position
+    R=world.uavs[uid].turn_radius
+    xe, ye, = world.tasks[tid].position
+    if world.tasks[tid].heading_enforcement:
+        the = world.tasks[tid].heading
+    else:
+        the = None
+    tols=world.tols
 
     if R <= 0.0:
         raise ValueError("UAV minimum turn radius must be positive!")
 
     # 1) Co-located
-    if _distance((x0, y0), (xe, ye)) <= tols[0]:
-        if the is None or abs(_angle_diff(th0, the)) <= tols[1]:
+    if _distance((x0, y0), (xe, ye)) <= tols.pos:
+        if the is None or abs(_angle_diff(th0, the)) <= tols.ang:
             return Path([])
         # adjust heading in place via CSC (degenerate straight)
-        return csc_segments_shortest(start_pose, end_pose, R)
+        return csc_segments_shortest((x0,y0,th0), (xe,ye,the), R)
 
     # 2) Straight-line feasibility
     dir_to_target = math.atan2(ye - y0, xe - x0)
     # Unconstrained entry: only UAV heading must align
-    if the is None and abs(_angle_diff(th0, dir_to_target)) <= tols[1]:
+    if the is None and abs(_angle_diff(th0, dir_to_target)) <= tols.ang:
         return Path([LineSegment(start=(x0, y0), end=(xe, ye))])
     # Constrained entry: both headings must align to the line
     if the is not None:
-        if abs(_angle_diff(th0, dir_to_target)) <= tols[1] and abs(_angle_diff(the, dir_to_target)) <= tols[1]:
+        if abs(_angle_diff(th0, dir_to_target)) <= tols.ang and abs(_angle_diff(the, dir_to_target)) <= tols.ang:
             return Path([LineSegment(start=(x0, y0), end=(xe, ye))])
 
     # 3) Dubins constructions
@@ -135,7 +141,7 @@ def plan_path_to_task(start_pose: Tuple[float, float, float], end_pose: Tuple[fl
             last = p.segments[-1]
             if isinstance(last, LineSegment):
                 line_h = _line_heading(last)
-                if abs(_angle_diff(line_h, the)) <= tols[1]:
+                if abs(_angle_diff(line_h, the)) <= tols.ang:
                     filtered.append(p)
         if filtered:
             return min(filtered, key=lambda p: p.length())
