@@ -61,8 +61,8 @@ class UAV:
     speed: float = 17.5 # m/s
     turn_radius: float = 80.0 # meters
     state: Literal[0, 1, 2, 3] = 0 # 0: idle, 1: in-transit, 2: busy, 3: damaged
-    cluster: Set[int] = field(default_factory=set) # List of assigned tasks ids
-    cluster_CoG: Tuple[float,float] = None
+    cluster: Optional[Set[int]] = field(default_factory=set) # List of assigned tasks ids
+    cluster_CoG: Optional[Tuple[float,float]] = None
     current_task: Optional[int] = None
     assigned_path: Optional[Path] = None
     current_range: float = 0.0   # meters

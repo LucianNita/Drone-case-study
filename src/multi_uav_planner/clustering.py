@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Optional
 
 import numpy as np
 from sklearn.cluster import KMeans
 
-from .world_models import Task, UAV
+from .world_models import Task, UAV, World
 
 
 @dataclass
@@ -159,26 +159,35 @@ def assign_clusters_to_uavs_by_proximity(
 
     return cluster_to_uav
 
-def assign_uav_to_cluster(
-    clustering_result: TaskClusterResult,
-    cluster_to_uav: Dict[int, int],
-) -> Dict[int, Set[int]]:
+def cluster_tasks(world:World) -> Optional[Dict[int, Set[int]]]:
     """
-    Convert a cluster->UAV assignment into a UAV->task_ids mapping.
-
-    Args:
-        clustering_result: Output of cluster_tasks_kmeans.
-        cluster_to_uav: Mapping from cluster index -> UAV id.
-
-    Returns:
-        Mapping from UAV id -> set of task ids assigned to that UAV.
     """
-    A: Dict[int, Set[int]] = {}
-    for cluster_idx, cluster_tasks in clustering_result.clusters.items():
-        if cluster_idx not in cluster_to_uav:
-            continue  # or raise, depending on how strict you want to be
-        uav_id = cluster_to_uav[cluster_idx]
-        if uav_id not in A:
-            A[uav_id] = set()
-        A[uav_id].update(t.id for t in cluster_tasks)
-    return A
+    # Build list of unassigned Task objects
+    unassigned_tasks = [world.tasks[tid] for tid in world.unassigned]
+    if not unassigned_tasks or not world.idle_uavs:
+        return None  # or just return if type is None
+    result={}
+
+    # Cluster tasks
+    K = min(len(world.idle_uavs), len(unassigned_tasks))
+    clustering_result = cluster_tasks_kmeans(
+        unassigned_tasks,
+        n_clusters=K,
+        random_state=0,
+    )
+
+    # Map clusters to idle UAVs by proximity
+    idle_uavs_list = [world.uavs[uid] for uid in world.idle_uavs]
+    cluster_to_uav = assign_clusters_to_uavs_by_proximity(
+        idle_uavs_list,
+        clustering_result.centers,
+    )
+
+    for k, uid in cluster_to_uav.items():
+        world.uavs[uid].cluster={t.id for t in clustering_result.clusters[k]}
+        cx, cy = clustering_result.centers[k]
+        world.uavs[uid].cluster_CoG = (float(cx), float(cy))
+        result[uid] = world.uavs[uid].cluster
+    
+    return result
+    

@@ -6,9 +6,9 @@ from multi_uav_planner.clustering import (
     _extract_task_positions,
     cluster_tasks_kmeans,
     assign_clusters_to_uavs_by_proximity,
-    assign_uav_to_cluster,
+    cluster_tasks
 )
-from multi_uav_planner.world_models import UAV, PointTask, Task
+from multi_uav_planner.world_models import UAV, PointTask, World
 
 def make_task(task_id: int, x: float, y: float) -> PointTask:
     # Minimal PointTask with required fields
@@ -107,31 +107,74 @@ def test_assign_clusters_to_uavs_by_proximity_uniqueness_one_to_one():
     assert len(mapping) == 3
     assert len(set(mapping.values())) == 3
 
-# ---------- assign_uav_to_cluster ----------
+# ---------- cluster_tasks (integration with World) ----------
 
-def test_assign_uav_to_cluster_builds_uav_to_task_objects_mapping():
-    tasks = [
-        make_task(1, 0.0, 0.0),
-        make_task(2, 1.0, 0.0),
-        make_task(3, 10.0, 0.0),
-        make_task(4, 11.0, 0.0),
-    ]
-    res = cluster_tasks_kmeans(tasks, n_clusters=2, random_state=0)
-    # Fake a direct proximity mapping based on centers order
-    uavs = [make_uav(100, -1.0, 0.0), make_uav(200, 12.0, 0.0)]
-    cluster_to_uav = assign_clusters_to_uavs_by_proximity(uavs, res.centers)
-    uav_to_tasks = assign_uav_to_cluster(res, cluster_to_uav)
+def _build_simple_world_for_clustering() -> World:
+    # two tasks, two idle UAVs
+    t1 = make_task(1, 0.0, 0.0)
+    t2 = make_task(2, 10.0, 0.0)
+    u1 = make_uav(1, 0.0, 0.0)
+    u2 = make_uav(2, 10.0, 0.0)
+    world = World(tasks={1: t1, 2: t2}, uavs={1: u1, 2: u2})
+    world.unassigned = {1, 2}
+    world.assigned = set()
+    world.completed = set()
+    world.idle_uavs = {1, 2}
+    world.transit_uavs = set()
+    world.busy_uavs = set()
+    world.damaged_uavs = set()
+    return world
 
-    # Sanity: mapping keys are UAV IDs
-    assert set(uav_to_tasks.keys()) == {u.id for u in uavs}
 
-    # Elements are Task instances
-    for tids in uav_to_tasks.values():
-        assert isinstance(tids, set)
-        assert all(isinstance(t, int) for t in tids)
+def test_cluster_tasks_populates_uav_clusters_and_cogs_and_returns_mapping():
+    world = _build_simple_world_for_clustering()
+    mapping = cluster_tasks(world)
 
-    # Every task id appears exactly once across all UAV assignments
-    all_assigned_ids = sorted(id_ for s in uav_to_tasks.values() for id_ in s)
-    assert all_assigned_ids == [1, 2, 3, 4]
-    assert uav_to_tasks[100]=={1,2}
-    assert uav_to_tasks[200]=={3,4}
+    assert isinstance(mapping, dict)
+    assert set(mapping.keys()) == {1, 2}  # UAV ids
+
+    # Each UAV should have exactly one task in its cluster
+    for uid, task_ids in mapping.items():
+        assert isinstance(task_ids, set)
+        assert len(task_ids) == 1
+        # world.uavs[].cluster should match mapping
+        assert world.uavs[uid].cluster == task_ids
+
+        tid = next(iter(task_ids))
+        tx, ty = world.tasks[tid].position
+        cx, cy = world.uavs[uid].cluster_CoG
+        # For singleton cluster, CoG == task position
+        assert cx == pytest.approx(tx)
+        assert cy == pytest.approx(ty)
+
+        # current_task and assigned_path untouched
+        assert world.uavs[uid].current_task is None
+        assert world.uavs[uid].assigned_path is None
+
+
+def test_cluster_tasks_returns_none_if_no_unassigned_or_no_idle():
+    # No unassigned tasks
+    t1 = make_task(1, 0.0, 0.0)
+    u1 = make_uav(1, 0.0, 0.0)
+    world = World(tasks={1: t1}, uavs={1: u1})
+    world.unassigned = set()
+    world.assigned = {1}
+    world.completed = set()
+    world.idle_uavs = {1}
+    world.transit_uavs = set()
+    world.busy_uavs = set()
+    world.damaged_uavs = set()
+
+    res = cluster_tasks(world)
+    assert res is None
+    assert world.uavs[1].cluster == set()
+
+    # No idle UAVs
+    world.unassigned = {1}
+    world.assigned = set()
+    world.idle_uavs = set()
+    world.transit_uavs = {1}
+
+    res = cluster_tasks(world)
+    assert res is None
+    assert world.uavs[1].cluster == set()
