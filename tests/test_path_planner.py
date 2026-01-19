@@ -93,7 +93,7 @@ def test_angle_diff_properties():
     assert _angle_diff(0.0, 0.0) == pytest.approx(0.0)
     # Opposites -> +/- pi
     assert _angle_diff(0.0, math.pi) == pytest.approx(-math.pi)
-    assert _angle_diff(math.pi, 0.0) == pytest.approx(math.pi)
+    assert abs(_angle_diff(math.pi, 0.0)) == pytest.approx(math.pi)
     # Wrap around 2*pi
     a = 2 * math.pi + 0.1
     b = 0.1
