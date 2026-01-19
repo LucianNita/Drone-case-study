@@ -1,8 +1,8 @@
-from multi_uav_planner.task_models import EventType, World
 from math import hypot
 from multi_uav_planner.path_planner import plan_path_to_task
-from multi_uav_planner.task_models import Task
-from typing import List
+from multi_uav_planner.world_models import EventType, World,Task
+from multi_uav_planner.path_model import Path
+from typing import Optional 
 
 def check_for_events(world:World) -> None:
     while world.events_cursor<len(world.events):
@@ -24,13 +24,13 @@ def _apply_uav_damage(world:World, id:int) -> None:
         return 
     u = world.uavs[id]
 
-    u.status = 3
+    u.state = 3
     world.idle_uavs.discard(id)
     world.transit_uavs.discard(id)
     world.busy_uavs.discard(id)
     world.damaged_uavs.add(id)
 
-    u.assigned_path.clear()
+    u.assigned_path = Path([])
 
     while u.assigned_tasks:
         t_id = u.assigned_tasks.pop(0)
@@ -71,12 +71,15 @@ def _uav_cluster_center(world: World, uav_id: int) -> tuple[float, float]:
     # Fallback: UAV current (x,y)
     return (world.uavs[uav_id].position[0], world.uavs[uav_id].position[1])
 
-def assign_task_to_cluster(world: World, task_id: int) -> None:
-    """Assign task_id to the UAV whose cluster center is closest to the task.
-       Returns the chosen UAV id, or None if no UAV is available."""
+def assign_task_to_cluster(world: World, task_id: int) -> Optional[int]:
+    """Assign task_id to the UAV whose 'cluster center' is closest to the task.
+
+    Returns:
+        The chosen UAV id, or None if no UAV is available.
+    """
 
     pos = world.tasks[task_id].position
-    best_uid = None
+    best_uid: Optional[int] = None
     best_d = float("inf")
 
     for uid in world.uavs:
@@ -96,13 +99,29 @@ def assign_task_to_cluster(world: World, task_id: int) -> None:
     u = world.uavs[best_uid]
     u.assigned_tasks.append(task_id)
 
-    if u.status == 0 and len(u.assigned_tasks)==1:
-        u.status = 1
+    world.unassigned.discard(task_id)
+    world.assigned.add(task_id)
+    world.tasks[task_id].state = 1
+
+    if u.state == 0 and len(u.assigned_tasks)==1:
+        u.state = 1
         world.idle_uavs.discard(best_uid)
         world.transit_uavs.add(best_uid)
         # Plan toward the first active task in the queue
         first_tid = u.assigned_tasks[0]
-        u.assigned_path = plan_path_to_task(u, first_tid)
-        world.unassigned.discard(task_id)
-        world.assigned.add(task_id)
-        world.tasks[task_id].state = 1
+
+        task = world.tasks[first_tid]
+        xt, yt = task.position
+        if task.heading_enforcement and task.heading is not None:
+            end_pose = (xt, yt, task.heading)
+        else:
+            end_pose = (xt, yt, None)
+
+        u.assigned_path = plan_path_to_task(
+            start_pose=u.position,
+            end_pose=end_pose,
+            R=u.turn_radius,
+            tols=(world.tols.pos, world.tols.ang),
+        )
+
+    return best_uid
