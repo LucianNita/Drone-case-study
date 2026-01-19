@@ -60,7 +60,7 @@ class UAV:
     turn_radius: float = 80.0 # meters
     state: Literal[0, 1, 2, 3] = 0 # 0: idle, 1: in-transit, 2: busy, 3: damaged
     assigned_tasks: List[int] = field(default_factory=list) # List of assigned tasks ids
-    assigned_path:Path = field(default_factory=lambda: Path([])) 
+    assigned_path: List[Path] = field(default_factory=list)
     current_range: float = 0.0   # meters
     max_range: float = 10000.0 # meters
 

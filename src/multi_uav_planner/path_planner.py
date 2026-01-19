@@ -2,8 +2,8 @@ from typing import List, Tuple, Optional, Literal
 import math
 from numpy import sign as sgn
 
-from multi_uav_planner.path_model import Segment, LineSegment, CurveSegment
-from multi_uav_planner.task_models import UAV, Task, PointTask, LineTask, CircleTask, AreaTask
+from multi_uav_planner.path_model import Path, Segment, LineSegment, CurveSegment
+from multi_uav_planner.world_models import UAV, Task, PointTask, LineTask, CircleTask, AreaTask
 from multi_uav_planner.dubins import cs_segments_single, cs_segments_shortest, csc_segments_single, csc_segments_shortest
 
 
@@ -19,25 +19,25 @@ def plan_mission_path(uav: UAV, task: Task) -> List[Segment]:
     # Use task.heading if enforced else 0.0 for mission geometry
     base_heading = task.heading if task.heading_enforcement else uav.position[2]
 
-    if task.type == 'Point':
-        return []
+    if isinstance(task, PointTask):
+        return Path([])
 
-    elif task.type == 'Line':
+    elif isinstance(task, LineTask):
         assert isinstance(task, LineTask)
         end_x = xe + task.length * math.cos(base_heading)
         end_y = ye + task.length * math.sin(base_heading)
-        return [LineSegment(start=(xe, ye), end=(end_x, end_y))]
+        return Path([LineSegment(start=(xe, ye), end=(end_x, end_y))])
 
-    elif task.type == 'Circle':
+    elif isinstance(task, CircleTask):
         assert isinstance(task, CircleTask)
         d_theta = +2 * math.pi if task.side == 'left' else -2 * math.pi
         # Start angle can be the mission heading; if None, use 0.0
         theta_s = base_heading - sgn(d_theta)*(math.pi/2)
         xc=xe+task.radius*math.cos(theta_s+math.pi)
         yc=ye+task.radius*math.sin(theta_s+math.pi)
-        return [CurveSegment(center=(xc, yc), radius=task.radius, theta_s=theta_s, d_theta=d_theta)]
+        return Path([CurveSegment(center=(xc, yc), radius=task.radius, theta_s=theta_s, d_theta=d_theta)])
 
-    elif task.type == 'Area':
+    elif isinstance(task, AreaTask):
         assert isinstance(task, AreaTask)
         segs: List[Segment] = []
         # Pass direction alternates: even index -> base_heading, odd -> base_heading + pi
@@ -71,7 +71,7 @@ def plan_mission_path(uav: UAV, task: Task) -> List[Segment]:
             x_curr = cx + r_turn * math.cos(theta_e)
             y_curr = cy + r_turn * math.sin(theta_e)
 
-        return segs
+        return Path(segs)
 
     else:
         raise ValueError(f"Unknown task type: {task.type}")
@@ -105,7 +105,7 @@ def plan_path_to_task(start_pose: Tuple[float, float, float], end_pose: Tuple[fl
     # 1) Co-located
     if _distance((x0, y0), (xe, ye)) <= tols[0]:
         if the is None or abs(_angle_diff(th0, the)) <= tols[1]:
-            return []
+            return Path([])
         # adjust heading in place via CSC (degenerate straight)
         return csc_segments_shortest(start_pose, end_pose, R)
 
@@ -113,11 +113,11 @@ def plan_path_to_task(start_pose: Tuple[float, float, float], end_pose: Tuple[fl
     dir_to_target = math.atan2(ye - y0, xe - x0)
     # Unconstrained entry: only UAV heading must align
     if the is None and abs(_angle_diff(th0, dir_to_target)) <= tols[1]:
-        return [LineSegment(start=(x0, y0), end=(xe, ye))]
+        return Path([LineSegment(start=(x0, y0), end=(xe, ye))])
     # Constrained entry: both headings must align to the line
     if the is not None:
         if abs(_angle_diff(th0, dir_to_target)) <= tols[1] and abs(_angle_diff(the, dir_to_target)) <= tols[1]:
-            return [LineSegment(start=(x0, y0), end=(xe, ye))]
+            return Path([LineSegment(start=(x0, y0), end=(xe, ye))])
 
     # 3) Dubins constructions
     if the is None:
@@ -128,20 +128,17 @@ def plan_path_to_task(start_pose: Tuple[float, float, float], end_pose: Tuple[fl
         cs_candidates = [
             cs_segments_single((x0, y0, th0), (xe, ye), R, pt) for pt in ("LS", "RS")
         ]
-        cs_feasible = [segs for segs in cs_candidates if segs is not None]
-        if cs_feasible:
-            i = len(cs_feasible) - 1
-            while i >= 0:
-                segs = cs_feasible[i]
-                last = segs[-1]
-                # CS segments are [CurveSegment, LineSegment]
-                if isinstance(last, LineSegment):
-                    line_h = _line_heading(last)
-                    if abs(_angle_diff(line_h, the)) > tols[1]:
-                        cs_feasible.pop(i)
-                i-=1
-        if cs_feasible:
-            return min(cs_feasible, key=lambda segs: sum(s.length() for s in segs))
+        cs_feasible = [p for p in cs_candidates if p is not None]
+        # Filter by final heading
+        filtered: List[Path] = []
+        for p in cs_feasible:
+            last = p.segments[-1]
+            if isinstance(last, LineSegment):
+                line_h = _line_heading(last)
+                if abs(_angle_diff(line_h, the)) <= tols[1]:
+                    filtered.append(p)
+        if filtered:
+            return min(filtered, key=lambda p: p.length())
         
         return csc_segments_shortest((x0, y0, th0), (xe, ye, the), R)
     

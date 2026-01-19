@@ -9,6 +9,7 @@ from multi_uav_planner.world_models import (
     World,
 )
 from multi_uav_planner.path_model import Path
+from typing import List
 
 # ---------- Tolerances ----------
 
@@ -82,7 +83,8 @@ def test_uav_defaults_and_assigned_path_is_path():
     assert u.turn_radius == pytest.approx(80.0)
     assert u.state == 0
     assert u.assigned_tasks == []
-    assert isinstance(u.assigned_path, Path)
+    assert isinstance(u.assigned_path, list)
+    assert all(isinstance(p, Path) for p in u.assigned_path)
     assert u.current_range == pytest.approx(0.0)
     assert u.max_range == pytest.approx(10000.0)
 
@@ -112,9 +114,10 @@ def test_uav_assigned_path_is_independent_instance():
     u1 = UAV(id=1, position=(0,0,0), speed=10, turn_radius=10, state=0)
     u2 = UAV(id=2, position=(0,0,0), speed=10, turn_radius=10, state=0)
     # Mutate path for u1
-    u1.assigned_path.segments.append(None)  # type: ignore[arg-type]
-    assert len(u1.assigned_path.segments) == 1
-    assert len(u2.assigned_path.segments) == 0
+    p = Path([])
+    u1.assigned_path.append(p)
+    assert len(u1.assigned_path) == 1
+    assert len(u2.assigned_path) == 0
 
 # ---------- Event ----------
 

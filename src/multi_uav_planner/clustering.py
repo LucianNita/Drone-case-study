@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Dict
+from typing import List, Dict, Set
 
 import numpy as np
 from sklearn.cluster import KMeans
