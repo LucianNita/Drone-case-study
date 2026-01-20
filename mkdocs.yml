@@ -4,11 +4,76 @@ site_url: https://luciannita.github.io/Drone-case-study/
 repo_url: https://github.com/LucianNita/Drone-case-study.git
 theme:
   name: material
-
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: pink
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: pink
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  font:
+    text: Inter
+    code: Fira Code
+  icon:
+    repo: fontawesome/brands/github
+  logo: assets/logo.png
+  favicon: assets/favicon.png
+  features:
+    - navigation.tabs
+    - navigation.top
+    - navigation.sections
+    - navigation.instant
+    - toc.integrate
+    - content.code.copy
+    - content.tabs.link
+    - header.autohide
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/LucianNita/Drone-case-study
+extra_css:
+  - styles/extra.css
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+  - pymdownx.details
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            show_signature_annotations: true
+  - mkdocs-jupyter
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
-  - Usage:
-      - Static Simulation: usage/static-simulation.md
-  - Development:
-      - Architecture: development/architecture.md
+  - User Guide:
+    - Scenarios: user-guide/scenarios.md
+    - Plotting: user-guide/plotting.md
+    - Simulation: user-guide/simulation.md
+  - Tutorials:
+    - Path + Dubins: tutorials/path_model_and_dubins.md
+    - Clustering + Assignment: tutorials/clustering_assignment.md
+    - Full Mission: tutorials/full_mission.md
+  - Algorithms:
+    - Dubins: algorithms/dubins.md
+    - Assignment: algorithms/assignment.md
+    - Clustering: algorithms/clustering.md
+  - API:
+    - multi_uav_planner: api/placeholder.md
+  - Dev:
+    - Architecture: dev/architecture.md
+    - Profiling: dev/profiling.md
+    - Contributing: dev/contributing.md
+  - Changelog: changelog.md
