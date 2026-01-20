@@ -4,7 +4,7 @@ import matplotlib.image as mpimg
 from typing import List, Tuple, Optional
 
 from multi_uav_planner.path_model import Segment, LineSegment, CurveSegment
-from multi_uav_planner.task_models import (
+from multi_uav_planner.world_models import (
     UAV, Task, PointTask, LineTask, CircleTask, AreaTask
 )
 from multi_uav_planner.dubins import (

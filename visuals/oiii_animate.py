@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from matplotlib.animation import FuncAnimation
 
-from multi_uav_planner.task_models import Task, PointTask, CircleTask, LineTask, AreaTask
-from trajectory_plotting import compute_uav_trajectory_segments
+from multi_uav_planner.world_models import Task, PointTask, CircleTask, LineTask, AreaTask
+from visuals.oi_trajectory_plotting import compute_uav_trajectory_segments
 import math
 
 

@@ -4,7 +4,7 @@ import matplotlib.image as mpimg
 from typing import List, Tuple, Optional
 
 from multi_uav_planner.path_model import Segment, LineSegment, CurveSegment
-from multi_uav_planner.task_models import (
+from multi_uav_planner.world_models import (
     UAV, Task, PointTask, LineTask, CircleTask, AreaTask
 )
 from multi_uav_planner.dubins import (
@@ -12,7 +12,7 @@ from multi_uav_planner.dubins import (
     csc_segments_shortest,
 )
 from multi_uav_planner.path_planner import plan_path_to_task, plan_mission_path
-from trajectory_plotting import compute_uav_trajectory_segments
+from visuals.oi_trajectory_plotting import compute_uav_trajectory_segments
 
 def plot_uav_trajectory(
     uav_start: Tuple[float, float, float],
