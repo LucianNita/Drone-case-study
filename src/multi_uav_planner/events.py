@@ -4,21 +4,21 @@ from multi_uav_planner.world_models import EventType, World,Task
 from multi_uav_planner.path_model import Path
 from typing import Optional, List
 
-def check_for_events(world:World) -> None:
+def check_for_events(world:World, clustering:bool) -> None:
     while world.events_cursor<len(world.events):
         ev=world.events[world.events_cursor]
         if not ev.should_trigger(world.time):
             break
         if ev.kind is EventType.UAV_DAMAGE:
-            _apply_uav_damage(world, ev.payload)
+            _apply_uav_damage(world, ev.payload, clustering)
         elif ev.kind is EventType.NEW_TASK:
-            _apply_new_task(world, ev.payload)
+            _apply_new_task(world, ev.payload, clustering)
         else:
             #warn 
             raise ValueError(f"Unknown event kind: {ev.kind} at cursor {world.events_cursor}")
         world.events_cursor+=1
 
-def _apply_uav_damage(world:World, id:int) -> None:
+def _apply_uav_damage(world:World, id:int, clustering: bool) -> None:
     if id not in world.uavs:
         #warn damaged uav was not present in the swarm
         return 
@@ -30,20 +30,20 @@ def _apply_uav_damage(world:World, id:int) -> None:
     world.busy_uavs.discard(id)
     world.damaged_uavs.add(id)
 
-    u.assigned_path = []
+    u.assigned_path = None
+    
+    t_id = u.current_task
+    if t_id in world.tasks and world.tasks[t_id].state != 2:
+        world.assigned.discard(t_id)
+        world.unassigned.add(t_id)
+        world.tasks[t_id].state=0
+    if clustering:
+        for t in u.cluster:
+            assign_task_to_cluster(world,t)
+        u.cluster.clear()
+        u.cluster_CoG = None
 
-    while u.assigned_tasks:
-        t_id = u.assigned_tasks.pop(0)
-        if t_id in world.tasks and world.tasks[t_id].state != 2:
-            world.assigned.discard(t_id)
-            world.unassigned.add(t_id)
-            world.tasks[t_id].state=0
-
-            assign_task_to_cluster(world,t_id)
-
-
-
-def _apply_new_task(world:World, tasks:List[Task]) -> None:
+def _apply_new_task(world:World, tasks:List[Task], clustering: bool) -> None:
     for task in tasks:
         world.tasks[task.id] = task
         if task.state == 1:
@@ -51,25 +51,12 @@ def _apply_new_task(world:World, tasks:List[Task]) -> None:
             #warn, new task cannot be yet assigned because is new
         if task.state == 0:
             world.unassigned.add(task.id)
-            assign_task_to_cluster(world,task.id)           
+            if clustering:
+                assign_task_to_cluster(world,task.id)           
         elif task.state == 2:
             world.completed.add(task.id)
         else:
             raise ValueError("NEW_TASK event is in an unknown state.")
-        
-def _uav_cluster_center(world: World, uav_id: int) -> tuple[float, float]:
-    # Collect positions of this UAV's assigned tasks (ignore completed/missing)
-    pts = []
-    for tid in world.uavs[uav_id].assigned_tasks:
-        t = world.tasks[tid]
-        if t is not None and t.state != 2:
-            pts.append(t.position)
-    if pts:
-        sx = sum(p[0] for p in pts) / len(pts)
-        sy = sum(p[1] for p in pts) / len(pts)
-        return (sx, sy)
-    # Fallback: UAV current (x,y)
-    return (world.uavs[uav_id].position[0], world.uavs[uav_id].position[1])
 
 def assign_task_to_cluster(world: World, task_id: int) -> Optional[int]:
     """Assign task_id to the UAV whose 'cluster center' is closest to the task.
@@ -85,7 +72,10 @@ def assign_task_to_cluster(world: World, task_id: int) -> Optional[int]:
     for uid in world.uavs:
         if uid in world.damaged_uavs:
             continue
-        center = _uav_cluster_center(world, uid)
+        if len(world.uavs[uid].cluster)==0:
+            center=(world.uavs[uid].position[0],world.uavs[uid].position[1])
+        else:
+            center = world.uavs[uid].cluster_CoG
         d = hypot(center[0] - pos[0], center[1] - pos[1])
         if d < best_d:
             best_d = d
@@ -97,31 +87,10 @@ def assign_task_to_cluster(world: World, task_id: int) -> Optional[int]:
 
 
     u = world.uavs[best_uid]
-    u.assigned_tasks.append(task_id)
-
-    world.unassigned.discard(task_id)
-    world.assigned.add(task_id)
-    world.tasks[task_id].state = 1
-
-    if u.state == 0 and len(u.assigned_tasks)==1:
-        u.state = 1
-        world.idle_uavs.discard(best_uid)
-        world.transit_uavs.add(best_uid)
-        # Plan toward the first active task in the queue
-        first_tid = u.assigned_tasks[0]
-
-        task = world.tasks[first_tid]
-        xt, yt = task.position
-        if task.heading_enforcement and task.heading is not None:
-            end_pose = (xt, yt, task.heading)
-        else:
-            end_pose = (xt, yt, None)
-
-        u.assigned_path = [plan_path_to_task(
-            start_pose=u.position,
-            end_pose=end_pose,
-            R=u.turn_radius,
-            tols=(world.tols.pos, world.tols.ang),
-        )]
+    u.cluster.add(task_id)
+    N = len(u.cluster)
+    xs = [world.tasks[t].position[0] for t in u.cluster]
+    ys = [world.tasks[t].position[1] for t in u.cluster]
+    u.cluster_CoG = (sum(xs) / N, sum(ys) / N)
 
     return best_uid

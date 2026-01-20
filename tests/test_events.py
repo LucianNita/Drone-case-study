@@ -10,7 +10,7 @@ from multi_uav_planner.world_models import (
     EventType,
     Tolerances,
 )
-from multi_uav_planner.path_model import Path, LineSegment
+from multi_uav_planner.path_model import LineSegment, Path
 from multi_uav_planner.events import (
     check_for_events,
     assign_task_to_cluster,
@@ -36,6 +36,7 @@ def make_uav(
         state=state,
     )
 
+
 def make_point_task(
     task_id: int,
     pos=(0.0, 0.0),
@@ -51,13 +52,22 @@ def make_point_task(
         heading=heading,
     )
 
+
 def make_empty_world() -> World:
     return World(tasks={}, uavs={})
+
 
 def init_single_uav_world() -> World:
     u = make_uav(id=1)
     world = World(tasks={}, uavs={1: u})
     world.idle_uavs = {1}
+    world.transit_uavs = set()
+    world.busy_uavs = set()
+    world.damaged_uavs = set()
+    world.unassigned = set()
+    world.assigned = set()
+    world.completed = set()
+    world.tols = Tolerances()
     return world
 
 
@@ -72,12 +82,13 @@ def test_check_for_events_does_not_trigger_future_events():
     world.events_cursor = 0
     world.time = 5.0
 
-    check_for_events(world)
+    check_for_events(world, clustering=False)
 
     # Cursor unchanged, event not applied
     assert world.events_cursor == 0
     assert world.uavs[1].state == 0
     assert 1 not in world.damaged_uavs
+
 
 def test_check_for_events_triggers_past_and_present_events():
     world = init_single_uav_world()
@@ -87,12 +98,13 @@ def test_check_for_events_triggers_past_and_present_events():
     world.events_cursor = 0
     world.time = 2.0
 
-    check_for_events(world)
+    check_for_events(world, clustering=False)
 
     # Both events processed (even if second payload refers to unknown UAV)
     assert world.events_cursor == 2
     assert world.uavs[1].state == 3
     assert 1 in world.damaged_uavs
+
 
 def test_check_for_events_multiple_mixed_events_order():
     world = init_single_uav_world()
@@ -104,13 +116,13 @@ def test_check_for_events_multiple_mixed_events_order():
     world.events_cursor = 0
 
     world.time = 1.5
-    check_for_events(world)
+    check_for_events(world, clustering=False)
     # Only first event processed
     assert world.events_cursor == 1
     assert 10 in world.tasks
 
     world.time = 2.0
-    check_for_events(world)
+    check_for_events(world, clustering=False)
     assert world.events_cursor == 2
     assert world.uavs[1].state == 3
 
@@ -131,7 +143,7 @@ def test_uav_damage_marks_uav_damaged_and_updates_sets():
     world.events = [ev]
     world.events_cursor = 0
 
-    check_for_events(world)
+    check_for_events(world, clustering=False)
 
     assert world.uavs[1].state == 3
     assert 1 not in world.idle_uavs
@@ -139,39 +151,35 @@ def test_uav_damage_marks_uav_damaged_and_updates_sets():
     assert 1 not in world.busy_uavs
     assert 1 in world.damaged_uavs
 
-def test_uav_damage_clears_assigned_path_and_requeues_tasks():
+
+def test_uav_damage_clears_assigned_path_and_returns_current_task():
     world = init_single_uav_world()
-    # Two tasks assigned to UAV 1
+    # One task assigned as current_task
     t1 = make_point_task(1, pos=(10.0, 0.0), state=1)
-    t2 = make_point_task(2, pos=(20.0, 0.0), state=1)
-    world.tasks = {1: t1, 2: t2}
+    world.tasks = {1: t1}
     world.unassigned = set()
-    world.assigned = {1, 2}
+    world.assigned = {1}
     world.completed = set()
 
     u = world.uavs[1]
     u.state = 2  # busy
     world.idle_uavs = set()
     world.busy_uavs = {1}
-    u.assigned_tasks = [1, 2]
+    u.current_task = 1
     u.assigned_path = Path([LineSegment((0, 0), (10, 0))])
 
     ev = Event(time=0.0, kind=EventType.UAV_DAMAGE, id=1, payload=1)
     world.events = [ev]
     world.events_cursor = 0
 
-    check_for_events(world)
+    check_for_events(world, clustering=False)
 
     assert world.uavs[1].state == 3
-    assert world.uavs[1].assigned_tasks == []
-    assert isinstance(world.uavs[1].assigned_path, list)
-    assert len(world.uavs[1].assigned_path) == 0
-
-    # Tasks should be moved back to unassigned if not completed
-    assert world.unassigned == {1, 2}
+    assert world.uavs[1].assigned_path is None
+    # current task should be moved back to unassigned if not completed
+    assert world.unassigned == {1}
     assert world.assigned == set()
     assert world.tasks[1].state == 0
-    assert world.tasks[2].state == 0
 
 
 def test_uav_damage_on_unknown_uav_is_ignored():
@@ -180,18 +188,54 @@ def test_uav_damage_on_unknown_uav_is_ignored():
     world.events = [ev]
     world.events_cursor = 0
 
-    check_for_events(world)
+    check_for_events(world, clustering=False)
 
     # World state unchanged
     assert world.uavs[1].state == 0
     assert not world.damaged_uavs
 
 
+def test_uav_damage_with_clustering_reassigns_cluster_tasks():
+    # Two UAVs, u1 damaged, u2 healthy; u1 had a cluster with two tasks
+    u1 = make_uav(1, position=(0.0, 0.0, 0.0))
+    u2 = make_uav(2, position=(100.0, 0.0, 0.0))
+    t1 = make_point_task(1, pos=(10.0, 0.0))
+    t2 = make_point_task(2, pos=(20.0, 0.0))
+    world = World(tasks={1: t1, 2: t2}, uavs={1: u1, 2: u2})
+    world.tols = Tolerances()
+    world.unassigned = {1, 2}
+    world.assigned = set()
+    world.completed = set()
+    world.idle_uavs = {1, 2}
+    world.transit_uavs = set()
+    world.busy_uavs = set()
+    world.damaged_uavs = set()
+
+    # u1 had these tasks in its cluster
+    world.uavs[1].cluster = {1, 2}
+    world.uavs[1].cluster_CoG = (15.0, 0.0)
+
+    ev = Event(time=0.0, kind=EventType.UAV_DAMAGE, id=1, payload=1)
+    world.events = [ev]
+    world.events_cursor = 0
+
+    check_for_events(world, clustering=True)
+
+    # u1 damaged, cluster cleared
+    assert world.uavs[1].state == 3
+    assert world.uavs[1].cluster == set()
+    assert world.uavs[1].cluster_CoG is None
+
+    # Tasks should have been assigned to some other UAV's cluster (u2)
+    assert 1 in world.uavs[2].cluster
+    assert 2 in world.uavs[2].cluster
+
+
 # ----------------------------------------------------------------------
-# Tests for NEW_TASK event behavior
+# NEW_TASK event behavior
 # ----------------------------------------------------------------------
 
-def test_new_task_event_adds_tasks_to_world():
+def test_new_task_event_adds_tasks_to_world_and_sets():
     world = init_single_uav_world()
     new_t1 = make_point_task(10, pos=(100.0, 0.0), state=0)
     new_t2 = make_point_task(11, pos=(200.0, 0.0), state=2)  # already completed
@@ -200,15 +244,22 @@ def test_new_task_event_adds_tasks_to_world():
     world.events = [ev]
     world.events_cursor = 0
 
-    check_for_events(world)
+    check_for_events(world, clustering=False)
 
     assert 10 in world.tasks and 11 in world.tasks
     assert world.tasks[10] is new_t1
     assert world.tasks[11] is new_t2
-    assert 11 in world.completed
-    assert 10 in world.assigned #Note assignment happens straight after spawning
 
-def test_new_task_event_treated_state_1_as_unassigned():
+    # State 0 -> unassigned
+    assert 10 in world.unassigned
+    assert 10 not in world.completed
+
+    # State 2 -> completed
+    assert 11 in world.completed
+    assert 11 not in world.unassigned
+
+
+def test_new_task_event_treats_state_1_as_unassigned():
     world = init_single_uav_world()
     t_state1 = make_point_task(10, pos=(0.0, 0.0), state=1)
 
@@ -216,33 +267,49 @@ def test_new_task_event_treated_state_1_as_unassigned():
     world.events = [ev]
     world.events_cursor = 0
 
-    check_for_events(world)
+    check_for_events(world, clustering=False)
 
-    # Should have been reset to state=0 and placed into unassigned, however assignment happens straight after. This my way of toggling debugging points
-    assert world.tasks[10].state == 1
-    assert 10 in world.assigned
+    # State 1 is reset to 0 and added to unassigned
+    assert world.tasks[10].state == 0
+    assert 10 in world.unassigned
+    assert 10 not in world.completed
 
 
-def test_new_task_event_updates_unassigned_and_completed_sets():
-    world = init_single_uav_world()
-    t_unassigned = make_point_task(10, pos=(0.0, 0.0), state=0)
-    t_completed = make_point_task(11, pos=(1.0, 1.0), state=2)
+def test_new_task_event_with_clustering_assigns_task_to_nearest_cluster():
+    # Two UAVs, one near each potential cluster
+    u1 = make_uav(1, position=(0.0, 0.0, 0.0))
+    u2 = make_uav(2, position=(100.0, 0.0, 0.0))
+    world = World(tasks={}, uavs={1: u1, 2: u2})
+    world.tols = Tolerances()
+    world.unassigned = set()
+    world.assigned = set()
+    world.completed = set()
+    world.idle_uavs = {1, 2}
+    world.transit_uavs = set()
+    world.busy_uavs = set()
+    world.damaged_uavs = set()
 
-    ev = Event(time=0.0, kind=EventType.NEW_TASK, id=1, payload=[t_unassigned, t_completed])
+    new_t1 = make_point_task(10, pos=(10.0, 0.0), state=0)   # closer to u1
+    new_t2 = make_point_task(11, pos=(90.0, 0.0), state=0)   # closer to u2
+
+    ev = Event(time=0.0, kind=EventType.NEW_TASK, id=1, payload=[new_t1, new_t2])
     world.events = [ev]
     world.events_cursor = 0
 
-    check_for_events(world)
+    check_for_events(world, clustering=True)
 
-    assert 10 in world.assigned
-    assert 11 in world.completed
-    assert 10 not in world.unassigned
-    assert 11 not in world.unassigned
-    assert 11 not in world.assigned
+    # Tasks added to world and unassigned set
+    assert 10 in world.unassigned and 11 in world.unassigned
+
+    # Clustering: cluster sets updated
+    assert 10 in world.uavs[1].cluster
+    assert 11 in world.uavs[2].cluster
+    assert world.uavs[1].cluster_CoG is not None
+    assert world.uavs[2].cluster_CoG is not None
 
 
 # ----------------------------------------------------------------------
-# Tests for assign_task_to_cluster (integration with events)
+# Tests for assign_task_to_cluster
 # ----------------------------------------------------------------------
 
 def test_assign_task_to_cluster_returns_none_when_all_uavs_damaged():
@@ -257,27 +324,28 @@ def test_assign_task_to_cluster_returns_none_when_all_uavs_damaged():
 
     uid = assign_task_to_cluster(world, 10)
     assert uid is None
-    # Task remains unassigned
+    # Task remains unclustered; global sets unchanged
     assert 10 in world.unassigned
-    assert 10 not in world.assigned
+    assert world.uavs[1].cluster == set()
 
-def test_assign_task_to_cluster_assigns_to_nearest_available_uav():
+
+def test_assign_task_to_cluster_assigns_to_nearest_available_uav_and_updates_cog():
     # Two UAVs: one near (0,0), one near (100,0)
     u1 = make_uav(1, position=(0.0, 0.0, 0.0))
     u2 = make_uav(2, position=(100.0, 0.0, 0.0))
     world = World(tasks={}, uavs={1: u1, 2: u2})
+    world.tols = Tolerances()
+    world.unassigned = set()
+    world.assigned = set()
+    world.completed = set()
     world.idle_uavs = {1, 2}
     world.transit_uavs = set()
     world.busy_uavs = set()
     world.damaged_uavs = set()
-    world.tols = Tolerances()
 
     t1 = make_point_task(10, pos=(5.0, 0.0), state=0)      # closer to u1
     t2 = make_point_task(11, pos=(95.0, 0.0), state=0)     # closer to u2
     world.tasks = {10: t1, 11: t2}
-    world.unassigned = {10, 11}
-    world.assigned = set()
-    world.completed = set()
 
     uid1 = assign_task_to_cluster(world, 10)
     uid2 = assign_task_to_cluster(world, 11)
@@ -285,74 +353,34 @@ def test_assign_task_to_cluster_assigns_to_nearest_available_uav():
     assert uid1 == 1
     assert uid2 == 2
 
-    assert 10 in world.uavs[1].assigned_tasks
-    assert 11 in world.uavs[2].assigned_tasks
-    assert 10 in world.assigned
-    assert 11 in world.assigned
-    assert 10 not in world.unassigned
-    assert 11 not in world.unassigned
-    assert world.tasks[10].state == 1
-    assert world.tasks[11].state == 1
+    assert world.uavs[1].cluster == {10}
+    assert world.uavs[2].cluster == {11}
+    assert world.uavs[1].cluster_CoG == pytest.approx((5.0, 0.0))
+    assert world.uavs[2].cluster_CoG == pytest.approx((95.0, 0.0))
 
-def test_assign_task_to_cluster_plans_path_for_idle_uav_first_task():
-    world = init_single_uav_world()
-    world.tols = Tolerances(pos=1e-3, ang=1e-3)
 
-    # One task in front of UAV
-    t = make_point_task(10, pos=(10.0, 0.0), state=0)
-    world.tasks = {10: t}
-    world.unassigned = {10}
+def test_assign_task_to_cluster_accumulates_cog_for_multiple_tasks():
+    u = make_uav(1, position=(0.0, 0.0, 0.0))
+    world = World(tasks={}, uavs={1: u})
+    world.tols = Tolerances()
+    world.unassigned = set()
     world.assigned = set()
     world.completed = set()
+    world.idle_uavs = {1}
+    world.transit_uavs = set()
+    world.busy_uavs = set()
+    world.damaged_uavs = set()
 
-    # Ensure UAV is idle and has no tasks
-    u = world.uavs[1]
-    u.state = 0
-    u.assigned_tasks = []
-    u.assigned_path = []
+    t1 = make_point_task(10, pos=(0.0, 0.0), state=0)
+    t2 = make_point_task(11, pos=(2.0, 0.0), state=0)
+    world.tasks = {10: t1, 11: t2}
 
-    uid = assign_task_to_cluster(world, 10)
-    assert uid == 1
+    uid1 = assign_task_to_cluster(world, 10)
+    uid2 = assign_task_to_cluster(world, 11)
 
-    # UAV should now be in transit with a non-empty path
-    assert u.state == 1
-    assert 1 in world.transit_uavs
-    assert 1 not in world.idle_uavs
-    assert u.assigned_tasks == [10]
-    assert isinstance(u.assigned_path, list)
-
-    # Path should have positive length and end at task position (within tol)
-    assert u.assigned_path[0].length() > 0.0
-    end_pt = u.assigned_path[0].segments[-1].end_point()
-    assert end_pt[0] == pytest.approx(t.position[0], abs=1e-2)
-    assert end_pt[1] == pytest.approx(t.position[1], abs=1e-2)
-
-
-def test_assign_task_to_cluster_does_not_replan_path_for_non_idle_uav():
-    world = init_single_uav_world()
-    world.tols = Tolerances()
-
-    # UAV already has one assigned task and a path
-    u = world.uavs[1]
-    u.state = 2  # busy
-    world.idle_uavs = set()
-    world.busy_uavs = {1}
-    existing_task = make_point_task(5, pos=(50.0, 0.0), state=1)
-    world.tasks = {5: existing_task}
-    u.assigned_tasks = [5]
-    u.assigned_path = Path([LineSegment((0, 0), (50, 0))])
-
-    # New task appears
-    t_new = make_point_task(10, pos=(60.0, 0.0), state=0)
-    world.tasks[10] = t_new
-    world.unassigned = {10}
-    world.assigned = {5}
-    world.completed = set()
-
-    uid = assign_task_to_cluster(world, 10)
-    assert uid == 1
-    # New task appended, but UAV status stays busy and path is unchanged
-    assert u.state == 2
-    assert 1 in world.busy_uavs
-    assert u.assigned_tasks == [5, 10]
-    assert len(u.assigned_path.segments) == 1  # old path preserved
+    assert uid1 == 1 and uid2 == 1
+    assert world.uavs[1].cluster == {10, 11}
+    # CoG should be at the average position (1,0)
+    cx, cy = world.uavs[1].cluster_CoG
+    assert cx == pytest.approx(1.0)
+    assert cy == pytest.approx(0.0)
