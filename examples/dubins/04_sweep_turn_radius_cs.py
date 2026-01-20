@@ -1,4 +1,4 @@
-import os, sys, csv
+import os, sys
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.append(PROJECT_ROOT)
 
@@ -17,8 +17,6 @@ def main():
             rows.append((R, p.length(), 1))
         except Exception:
             rows.append((R, None, 0))
-    with open("cs_length_vs_R.csv", "w", newline="") as f:
-        csv.writer(f).writerows([("R","length","feasible")] + rows)
 
     # Optional plot of feasible lengths
     xs = [r for r,l,flag in rows if flag]

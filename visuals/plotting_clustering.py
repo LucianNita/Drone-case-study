@@ -69,3 +69,9 @@ def plot_world_clusters(ax, world: World, clustering: TaskClusterResult, cluster
         plot_cluster_to_uav_assignment(ax, list(world.uavs.values()), clustering.centers, cluster_to_uav, style)
     finalize_axes(ax, title)
     ax.legend(loc="best")
+
+def annotate_task_clusters(ax, tasks, labels, color="k", fontsize=8, dx=3.0, dy=3.0):
+    import numpy as np
+    labels_arr = np.asarray(labels).ravel()
+    for t, lab in zip(tasks, labels_arr):
+        ax.text(t.position[0]+dx, t.position[1]+dy, f"C{int(lab)}", color=color, fontsize=fontsize)

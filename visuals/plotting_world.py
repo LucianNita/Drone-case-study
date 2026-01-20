@@ -110,8 +110,9 @@ def _plot_area_task(ax, t: AreaTask, color: str, style: WorldPlotStyle):
         offset = (i - (t.num_passes-1)/2.0) * t.pass_spacing
         xs = x + offset * np.cos(normal)
         ys = y + offset * np.sin(normal) 
-        xs+= t.pass_length * np.cos(th if i % 2 == 1 else th + np.pi)
-        ys+= t.pass_length * np.sin(th if i % 2 == 1 else th + np.pi)
+        if i%2==1:
+            xs+= t.pass_length * np.cos(th)
+            ys+= t.pass_length * np.sin(th)
         xe = xs + t.pass_length * np.cos(th if i % 2 == 0 else th + np.pi)
         ye = ys + t.pass_length * np.sin(th if i % 2 == 0 else th + np.pi)
         ax.plot([xs, xe], [ys, ye], color=color, lw=style.lw_task_geom, alpha=0.9)
