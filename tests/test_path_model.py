@@ -120,7 +120,7 @@ def test_path_length_is_sum_of_segments():
 def test_path_sampling_deduplicates_junction():
     # Connect a line to an arc; ensure shared endpoint isn't duplicated
     L = LineSegment((0.0, 0.0), (1.0, 0.0))
-    # Arc centered at (0,0), start angle pi (point (0,0)), sweep to pi/2 (point (0,-1))
+    # Arc centered at (0,0), start angle pi (point (-1,0)), sweep to pi/2 (point (0,1))
     C = CurveSegment(center=(0.0, 0.0), radius=1.0, theta_s=pi, d_theta=-pi/2)
     P = Path([L, C])
 

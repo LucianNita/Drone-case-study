@@ -44,7 +44,7 @@ def cs_segments_single(
     # --- 3. Angle theta_mf between SF and MF ------------------------------
     # In the right triangle with hypotenuse d and one leg R:
     #   sin(theta_mf) = R / d  =>  theta_mf = arcsin(R / d).
-    sin_theta_mf = radius / d
+    sin_theta_mf = min(1.0, max(-1.0, radius / d))
     theta_mf = math.asin(sin_theta_mf)
 
     # --- 4. Radius angle θ_M from circle center to the point of tangency (heading along SM at tangent point) ------
@@ -119,14 +119,14 @@ def csc_segments_single(
     th_sf = math.atan2(dy, dx)
 
     inner = path_type in {"LSR", "RSL"}
-    # For LSR/RSL, we use inner tangents; they only exist if the circle centers are separated by at least 2*R.
-    if inner and d < 2 * R:
-        return None
 
     # Angle for tangent calculation (only nonzero for LSR/RSL)
     theta_mn = 0.0
-    if inner:
-        theta_mn = math.asin(2 * R / d)
+    if inner: 
+        ratio = 2 * R / d
+        if ratio > 1.0:     # For LSR/RSL, we use inner tangents; they only exist if the circle centers are separated by at least 2*R.
+            return None
+        theta_mn = math.asin(min(1.0, max(-1.0, ratio)))
 
     # Compute tangent angles and arc transitions
     if path_type == "LSL":

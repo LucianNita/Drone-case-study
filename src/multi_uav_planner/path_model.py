@@ -2,24 +2,23 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import hypot, sin, cos, pi
 from typing import Tuple, List, Union
+from abc import ABC,abstractmethod
 
 
 Point = Tuple[float, float]
 
 
 @dataclass
-class Segment:
+class Segment(ABC):
     """Abstract interface for path segments."""
-    def length(self) -> float:
-        raise NotImplementedError
-    def sample(self, n: int) -> List[Point]:
-        if n < 2:
-            raise ValueError("n must be >= 2")
-        raise NotImplementedError
-    def start_point(self) -> Point:
-        raise NotImplementedError
-    def end_point(self) -> Point:
-        raise NotImplementedError
+    @abstractmethod
+    def length(self) -> float:...
+    @abstractmethod
+    def sample(self, n: int) -> List[Point]:...
+    @abstractmethod
+    def start_point(self) -> Point:...
+    @abstractmethod
+    def end_point(self) -> Point:...
 
 @dataclass
 class LineSegment(Segment):

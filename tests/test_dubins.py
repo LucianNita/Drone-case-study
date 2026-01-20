@@ -78,7 +78,7 @@ def test_cs_symmetry_for_target_behind() -> None:
     assert path_ls is not None and path_rs is not None
 
     L_ls = path_ls.length()
-    L_rs = path_ls.length()
+    L_rs = path_rs.length()
     assert L_ls == pytest.approx(L_rs, rel=1e-12)
 
 def test_cs_segments_shortest_returns_empty_when_same_point() -> None:

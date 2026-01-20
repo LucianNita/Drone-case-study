@@ -83,7 +83,7 @@ def _angle_diff(a: float, b: float) -> float:
 def _distance(p: Tuple[float, float], q: Tuple[float, float]) -> float:
     return math.hypot(q[0] - p[0], q[1] - p[1])
 
-def plan_path_to_task(world: World, uid:int, tid:int) -> Path:
+def plan_path_to_task(world: World, uid:int, t_pose: Tuple[float,float,float]) -> Path:
     """
     Returns the shortest path as segments from UAV pose to the task entry point.
     Policy:
@@ -98,11 +98,7 @@ def plan_path_to_task(world: World, uid:int, tid:int) -> Path:
     
     x0, y0, th0 = world.uavs[uid].position
     R=world.uavs[uid].turn_radius
-    xe, ye, = world.tasks[tid].position
-    if world.tasks[tid].heading_enforcement:
-        the = world.tasks[tid].heading
-    else:
-        the = None
+    xe, ye, the = t_pose
     tols=world.tols
 
     if R <= 0.0:

@@ -10,9 +10,6 @@ from multi_uav_planner.path_planner import (
     _distance,
 )
 
-# ----------------------------------------------------------------------
-# Helpers
-# ----------------------------------------------------------------------
 
 # ----------------------------------------------------------------------
 # Helpers
@@ -32,6 +29,7 @@ def make_uav(
         state=0,
     )
 
+
 def make_point_task(task_id: int, pos, heading=None, enforced=False) -> PointTask:
     return PointTask(
         id=task_id,
@@ -40,6 +38,7 @@ def make_point_task(task_id: int, pos, heading=None, enforced=False) -> PointTas
         heading_enforcement=enforced,
         heading=heading,
     )
+
 
 def make_line_task(task_id: int, pos, length=100.0, heading=None, enforced=True) -> LineTask:
     return LineTask(
@@ -51,6 +50,7 @@ def make_line_task(task_id: int, pos, length=100.0, heading=None, enforced=True)
         length=length,
     )
 
+
 def make_circle_task(task_id: int, pos, radius=50.0, side="left", heading=None, enforced=True) -> CircleTask:
     return CircleTask(
         id=task_id,
@@ -61,6 +61,7 @@ def make_circle_task(task_id: int, pos, radius=50.0, side="left", heading=None, 
         radius=radius,
         side=side,
     )
+
 
 def make_area_task(
     task_id: int,
@@ -84,6 +85,7 @@ def make_area_task(
         side=side,
     )
 
+
 def make_world_with(uav: UAV, task: Task) -> World:
     w = World(tasks={task.id: task}, uavs={uav.id: uav})
     w.unassigned = {task.id}
@@ -92,24 +94,30 @@ def make_world_with(uav: UAV, task: Task) -> World:
     return w
 
 
+def pose_from_task(task: Task) -> tuple[float, float, float | None]:
+    """Build (x, y, heading_or_None) pose from a Task."""
+    x, y = task.position
+    the = task.heading if task.heading_enforcement else None
+    return (x, y, the)
+
+
 #-----------------------------------------------------------------------
 # Tests for helper functions
 # ----------------------------------------------------------------------
 
 def test_angle_diff_properties():
-    # Same angle -> 0
     assert _angle_diff(0.0, 0.0) == pytest.approx(0.0)
-    # Opposites -> +/- pi
     assert _angle_diff(0.0, math.pi) == pytest.approx(-math.pi)
     assert abs(_angle_diff(math.pi, 0.0)) == pytest.approx(math.pi)
-    # Wrap around 2*pi
     a = 2 * math.pi + 0.1
     b = 0.1
     assert _angle_diff(a, b) == pytest.approx(0.0, abs=1e-12)
 
+
 def test_distance_simple():
     assert _distance((0.0, 0.0), (3.0, 4.0)) == pytest.approx(5.0)
     assert _distance((1.0, 1.0), (1.0, 1.0)) == pytest.approx(0.0)
+
 
 # ----------------------------------------------------------------------
 # Tests for plan_mission_path
@@ -122,6 +130,7 @@ def test_plan_mission_path_point_task_returns_empty_path():
     assert isinstance(path, Path)
     assert path.length() == pytest.approx(0.0)
     assert path.segments == []
+
 
 def test_plan_mission_path_line_task_geometry():
     uav = make_uav(position=(0.0, 0.0, 0.0))
@@ -142,6 +151,7 @@ def test_plan_mission_path_line_task_geometry():
     assert seg.end[0] == pytest.approx(expected_end_x)
     assert seg.end[1] == pytest.approx(expected_end_y)
 
+
 def test_plan_mission_path_line_task_uses_uav_heading_if_not_enforced():
     uav = make_uav(position=(0.0, 0.0, math.pi / 2))
     task = make_line_task(3, pos=(0.0, 0.0), length=50.0, heading=None, enforced=False)
@@ -149,6 +159,7 @@ def test_plan_mission_path_line_task_uses_uav_heading_if_not_enforced():
     seg = path.segments[0]
     assert seg.end[0] == pytest.approx(0.0)
     assert seg.end[1] == pytest.approx(50.0)
+
 
 def test_plan_mission_path_circle_task_full_circle_left():
     uav = make_uav(position=(0.0, 0.0, 0.0))
@@ -163,6 +174,7 @@ def test_plan_mission_path_circle_task_full_circle_left():
     assert seg.radius == pytest.approx(radius)
     assert seg.d_theta == pytest.approx(2 * math.pi)
 
+
 def test_plan_mission_path_circle_task_full_circle_right():
     uav = make_uav()
     radius = 30.0
@@ -172,6 +184,7 @@ def test_plan_mission_path_circle_task_full_circle_right():
     path = plan_mission_path(uav, task)
     seg = path.segments[0]
     assert seg.d_theta == pytest.approx(-2 * math.pi)
+
 
 def test_plan_mission_path_area_task_basic_structure():
     uav = make_uav(position=(0.0, 0.0, 0.0))
@@ -195,47 +208,57 @@ def test_plan_mission_path_area_task_basic_structure():
     assert seg_types[3] is CurveSegment
     assert seg_types[4] is LineSegment
 
+
 # ----------------------------------------------------------------------
-# Tests for plan_path_to_task (world-based)
+# Tests for plan_path_to_task (pose-based)
 # ----------------------------------------------------------------------
 
 def test_plan_path_to_task_raises_on_nonpositive_R():
     uav = make_uav(turn_radius=0.0)
     task = make_point_task(1, pos=(10.0, 0.0))
     world = make_world_with(uav, task)
+    t_pose = (task.position[0], task.position[1], None)
     with pytest.raises(ValueError):
-        _ = plan_path_to_task(world, uid=uav.id, tid=task.id)
+        _ = plan_path_to_task(world, uid=uav.id, t_pose=t_pose)
+
 
 def test_plan_path_to_task_zero_distance_unconstrained_heading_returns_empty():
     uav = make_uav(position=(0.0, 0.0, 0.0))
     task = make_point_task(1, pos=(0.0, 0.0), heading=None, enforced=False)
     world = make_world_with(uav, task)
-    path = plan_path_to_task(world, uid=uav.id, tid=task.id)
+    t_pose = (task.position[0], task.position[1], None)
+    path = plan_path_to_task(world, uid=uav.id, t_pose=t_pose)
     assert isinstance(path, Path)
     assert path.length() == pytest.approx(0.0)
     assert path.segments == []
+
 
 def test_plan_path_to_task_zero_distance_matching_heading_returns_empty():
     uav = make_uav(position=(0.0, 0.0, 0.1))
     task = make_point_task(1, pos=(0.0, 0.0), heading=0.1, enforced=True)
     world = make_world_with(uav, task)
-    path = plan_path_to_task(world, uid=uav.id, tid=task.id)
+    t_pose = (task.position[0], task.position[1], task.heading)
+    path = plan_path_to_task(world, uid=uav.id, t_pose=t_pose)
     assert path.length() == pytest.approx(0.0)
+
 
 def test_plan_path_to_task_zero_distance_mismatched_heading_uses_csc():
     uav = make_uav(position=(0.0, 0.0, 0.0))
     task = make_point_task(1, pos=(0.0, 0.0), heading=math.pi / 2, enforced=True)
     world = make_world_with(uav, task)
-    path = plan_path_to_task(world, uid=uav.id, tid=task.id)
+    t_pose = (task.position[0], task.position[1], task.heading)
+    path = plan_path_to_task(world, uid=uav.id, t_pose=t_pose)
     assert path.length() > 0.0
     assert len(path.segments) >= 2   # typically 2–3 segments
+
 
 def test_plan_path_to_task_unconstrained_straight_line():
     uav = make_uav(position=(0.0, 0.0, 0.0))
     task = make_point_task(1, pos=(10.0, 0.0), heading=None, enforced=False)
     world = make_world_with(uav, task)
     world.tols = Tolerances(pos=1e-6, ang=1e-3)
-    path = plan_path_to_task(world, uid=uav.id, tid=task.id)
+    t_pose = (task.position[0], task.position[1], None)
+    path = plan_path_to_task(world, uid=uav.id, t_pose=t_pose)
 
     assert len(path.segments) == 1
     seg = path.segments[0]
@@ -244,16 +267,19 @@ def test_plan_path_to_task_unconstrained_straight_line():
     assert seg.end == (10.0, 0.0)
     assert path.length() == pytest.approx(10.0)
 
+
 def test_plan_path_to_task_constrained_straight_line_both_headings_aligned():
     uav = make_uav(position=(0.0, 0.0, 0.0))
     task = make_point_task(1, pos=(10.0, 0.0), heading=0.0, enforced=True)
     world = make_world_with(uav, task)
     world.tols = Tolerances(pos=1e-6, ang=1e-3)
-    path = plan_path_to_task(world, uid=uav.id, tid=task.id)
+    t_pose = (task.position[0], task.position[1], task.heading)
+    path = plan_path_to_task(world, uid=uav.id, t_pose=t_pose)
 
     assert len(path.segments) == 1
     assert isinstance(path.segments[0], LineSegment)
     assert path.length() == pytest.approx(10.0)
+
 
 def test_plan_path_to_task_constrained_not_straight_uses_dubins():
     uav = make_uav(position=(0.0, 0.0, 0.0))
@@ -261,8 +287,9 @@ def test_plan_path_to_task_constrained_not_straight_uses_dubins():
     world = make_world_with(uav, task)
     world.tols = Tolerances(pos=1e-6, ang=1e-3)
     world.uavs[uav.id].turn_radius = 5.0
+    t_pose = (task.position[0], task.position[1], task.heading)
 
-    path = plan_path_to_task(world, uid=uav.id, tid=task.id)
+    path = plan_path_to_task(world, uid=uav.id, t_pose=t_pose)
     assert isinstance(path, Path)
     assert path.length() > 0.0
     assert len(path.segments) >= 2
@@ -270,16 +297,19 @@ def test_plan_path_to_task_constrained_not_straight_uses_dubins():
     assert end_pt[0] == pytest.approx(10.0, abs=1e-2)
     assert end_pt[1] == pytest.approx(10.0, abs=1e-2)
 
+
 def test_plan_path_to_task_unconstrained_cs_vs_euclidean_length():
     uav = make_uav(position=(0.0, 0.0, 0.0))
     task = make_point_task(1, pos=(10.0, 5.0), heading=None, enforced=False)
     world = make_world_with(uav, task)
     world.uavs[uav.id].turn_radius = 2.0
     world.tols = Tolerances(pos=1e-6, ang=1e-3)
+    t_pose = (task.position[0], task.position[1], None)
 
-    path = plan_path_to_task(world, uid=uav.id, tid=task.id)
+    path = plan_path_to_task(world, uid=uav.id, t_pose=t_pose)
     euclid = math.hypot(10.0, 5.0)
     assert path.length() >= euclid
+
 
 def test_plan_path_to_task_heading_filter_for_cs():
     uav = make_uav(position=(0.0, 0.0, 0.0))
@@ -287,8 +317,9 @@ def test_plan_path_to_task_heading_filter_for_cs():
     world = make_world_with(uav, task)
     world.uavs[uav.id].turn_radius = 5.0
     world.tols = Tolerances(pos=1e-6, ang=1e-3)
+    t_pose = (task.position[0], task.position[1], task.heading)
 
-    path = plan_path_to_task(world, uid=uav.id, tid=task.id)
+    path = plan_path_to_task(world, uid=uav.id, t_pose=t_pose)
     last_seg = path.segments[-1]
     if isinstance(last_seg, LineSegment):
         final_heading = math.atan2(
@@ -297,6 +328,7 @@ def test_plan_path_to_task_heading_filter_for_cs():
         )
         diff = ((final_heading - math.pi/2) + math.pi) % (2*math.pi) - math.pi
         assert abs(diff) <= 1e-1
+
 
 # ----------------------------------------------------------------------
 # Integration-ish sanity: mission path + connection path
@@ -308,7 +340,9 @@ def test_mission_and_connection_paths_can_be_concatenated():
     world = make_world_with(uav, task)
     world.uavs[uav.id].turn_radius = 80.0
 
-    connect_path = plan_path_to_task(world, uid=uav.id, tid=task.id)
+    # Connection path uses pose-based interface
+    t_pose = (task.position[0], task.position[1], None)
+    connect_path = plan_path_to_task(world, uid=uav.id, t_pose=t_pose)
     mission_path = plan_mission_path(uav, task)
 
     combined_segments = connect_path.segments + mission_path.segments
