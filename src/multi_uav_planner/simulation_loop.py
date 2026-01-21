@@ -84,7 +84,7 @@ def simulate_mission(
             break
             
         if world.done() and not world.at_base() and not world.transit_uavs and not world.busy_uavs:
-            return_to_base(world)
+            return_to_base(world, scenario.alg_type in {AlgorithmType.PRBDD,AlgorithmType.RBDD})
             if on_step: on_step(world, "planned_return")
 
     

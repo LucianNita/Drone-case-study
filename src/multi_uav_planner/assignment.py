@@ -1,4 +1,5 @@
 from multi_uav_planner.world_models import World
+from multi_uav_planner.path_model import Path, LineSegment
 from multi_uav_planner.scenario_generation import AlgorithmType
 from multi_uav_planner.path_planner import plan_path_to_task
 import math
@@ -77,7 +78,11 @@ def assignment(world: World, algo: AlgorithmType = AlgorithmType.PRBDD) -> Dict[
         
             world.uavs[uav].current_task=tid
             world.uavs[uav].state = 1
-            world.uavs[uav].assigned_path=plan_path_to_task(world, uav, (xe,ye,the))
+            if algo is AlgorithmType.RBDD:
+                world.uavs[uav].assigned_path=plan_path_to_task(world, uav, (xe,ye,the))
+            else:
+                x,y,th=world.uavs[uav].position
+                world.uavs[uav].assigned_path = Path(segments=[LineSegment((x,y),(xe,ye))])
             world.idle_uavs.remove(uav)
             world.transit_uavs.add(uav)
             world.unassigned.remove(tid)

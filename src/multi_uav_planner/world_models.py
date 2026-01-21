@@ -165,7 +165,7 @@ class World:
             x,y,h = u.position
             if abs(x-bx)>p_tol or abs(y-by)>p_tol:
                 return False
-            if abs((h-bh + pi)%(2*pi)-pi)>a_tol:
-                return False
+#            if abs((h-bh + pi)%(2*pi)-pi)>a_tol:
+#                return False
         return True
 

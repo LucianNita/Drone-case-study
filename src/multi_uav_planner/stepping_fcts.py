@@ -1,7 +1,7 @@
 from multi_uav_planner.path_planner import plan_mission_path,plan_path_to_task
 from multi_uav_planner.world_models import UAV, World
 from typing import Tuple
-from multi_uav_planner.path_model import Segment,CurveSegment,LineSegment
+from multi_uav_planner.path_model import Segment,CurveSegment,LineSegment, Path
 import math
 import numpy as np    
         
@@ -62,14 +62,16 @@ def perform_task(world: World, dt: float) -> bool:
                 
     return moved
 
-def return_to_base(world):
+def return_to_base(world, use_dubins):
         
     for j in list(world.idle_uavs):
         world.uavs[j].state=1
         world.idle_uavs.remove(j)
         world.transit_uavs.add(j)
-
-        world.uavs[j].assigned_path=plan_path_to_task(world,j,world.base)
+        if use_dubins:
+            world.uavs[j].assigned_path=plan_path_to_task(world,j,world.base)
+        else:
+            world.uavs[j].assigned_path = Path(segments=[LineSegment((world.uavs[j].position[0],world.uavs[j].position[1]),(world.base[0],world.base[1]))])
 
 
 
@@ -107,12 +109,13 @@ def pose_update(uav: UAV, dt: float, atol: float) -> bool:
             # clamp to end
             s_new = L
             flag=True
+
         ratio = s_new / L
         new_x = sx + ratio * dx
         new_y = sy + ratio * dy
         line_heading = math.atan2(dy, dx)
         uav.position = (new_x, new_y, line_heading)
-        uav.current_range += distance
+        uav.current_range += s_new-s_curr
 
         return flag
     elif isinstance(seg, CurveSegment):
@@ -134,6 +137,6 @@ def pose_update(uav: UAV, dt: float, atol: float) -> bool:
             p2 = heading + delta
             seg.d_theta-=delta
             seg.theta_s+=delta
-        uav.current_range+=distance
+        uav.current_range+=min(abs(angle_traveled),abs(seg.d_theta))*seg.radius
         uav.position=(p0,p1,p2)
         return flag

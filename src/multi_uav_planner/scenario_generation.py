@@ -63,6 +63,7 @@ class ScenarioConfig:
     ts_new_task: float = 0.0
     tf_new_task: float = 0.0
     ts_damage: float = 0.0
+    tf_damage: float = 0.0
 
     seed: int = 0
 
@@ -197,7 +198,7 @@ def _generate_events(cfg: ScenarioConfig) -> List[Event]:
             raise ValueError("Number of damaged uavs needs to be less than the total number of uavs")
         nd = cfg.n_damage
         t0 = cfg.ts_damage
-        t1 = cfg.max_time  # or a known mission horizon
+        t1 = cfg.tf_damage if cfg.tf_damage > 0.0 else cfg.max_time
         times = sorted(random.uniform(t0, t1) for _ in range(nd))
         # Unique UAV ids
         uav_ids = random.sample([i for i in range(1,cfg.n_uavs+1)], nd)
