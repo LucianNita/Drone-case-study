@@ -11,8 +11,8 @@ from visuals.plotting_simulation import plot_overview_with_traces, plot_task_cou
 
 def main():
     cfg = ScenarioConfig(
-        base=(0,0,0), area_width=300, area_height=250,
-        n_uavs=3, n_tasks=20, alg_type=AlgorithmType.PRBDD,
+        base=(0,0,0), area_width=3000, area_height=2500,
+        n_uavs=3, n_tasks=20, alg_type=AlgorithmType.HBA,
         scenario_type=ScenarioType.BOTH, n_new_task=5, n_damage=2,
         ts_new_task=10.0, tf_new_task=120.0, ts_damage=30.0,
         seed=42

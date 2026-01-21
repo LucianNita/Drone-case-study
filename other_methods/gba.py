@@ -164,3 +164,50 @@ print("UAV to tasks:", multi_result.uav_to_tasks)
 one_shot_result = greedy_one_shot_euclidean(tasks, uavs)
 print("Greedy one-shot total cost:", one_shot_result.total_cost)
 print("UAV to task:", one_shot_result.uav_to_task)
+
+
+
+'''
+        # Greedy: assign each worker to their cheapest currently available task
+        assigned = set()
+        assign = [-1] * n
+        for i in range(n):
+            best_j, best_cost = None, math.inf
+            for j in range(m):
+                if j in assigned:
+                    continue
+                c = C[i][j]
+                if c < best_cost:
+                    best_cost, best_j = c, j
+            if best_j is None:
+                # Fallback to random (shouldn't happen when n <= m)
+                remaining = [j for j in range(m) if j not in assigned]
+                best_j = random.choice(remaining)
+            assign[i] = best_j
+            assigned.add(best_j)
+        return assign
+        
+'''
+
+
+'''
+used_uavs = set()
+    used_clusters = set()
+
+    pairs = [
+        (costs[i, j], i, j)
+        for i in range(K)
+        for j in range(K)
+    ]
+    pairs.sort(key=lambda x: x[0])
+
+    for _, i, j in pairs:
+        if i in used_uavs or j in used_clusters:
+            continue
+        uav_id = uavs[i].id
+        cluster_to_uav[j] = uav_id
+        used_uavs.add(i)
+        used_clusters.add(j)
+        if len(used_clusters) == K:
+            break
+        '''

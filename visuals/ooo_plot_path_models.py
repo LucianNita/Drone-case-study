@@ -50,3 +50,19 @@ def plot_uav_paths_and_tasks(
     ax.set_ylabel("y [m]")
     return fig, ax
 
+
+
+
+def plot_metric_over_time(metrics_log: List[dict], key: str, ax=None):
+    if ax is None:
+        fig, ax = plt.subplots()
+    else:
+        fig = ax.figure
+
+    ts = [m["time"] for m in metrics_log]
+    ys = [m[key] for m in metrics_log]
+    ax.plot(ts, ys)
+    ax.set_xlabel("time [s]")
+    ax.set_ylabel(key)
+    ax.grid(True, alpha=0.3)
+    return fig, ax
