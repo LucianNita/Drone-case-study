@@ -1,4 +1,3 @@
-# src/multi_uav_planner/clustering.py
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,30 +6,45 @@ from typing import List, Dict, Set, Optional
 import numpy as np
 from sklearn.cluster import KMeans
 
-from .world_models import Task, UAV, World
+from.world_models import Task, UAV, World
 from multi_uav_planner.assignment import greedy_global_assign_int
+
+# ---------------------------------------------------------------------------
+# Module: clustering
+#
+# High-level responsibilities:
+# - Cluster task locations (K-means) and map clusters to UAVs.
+# - Provide a simple proximity-based mapping from clusters -> UAVs.
+# - Maintain UAV cluster membership and cluster center-of-gravity (CoG).
+#
+# Conventions:
+# - Positions are 2D points $$(x,y)$$ throughout.
+# - Cluster centers are provided as an array of shape $$(K,2)$$.
+# ---------------------------------------------------------------------------
 
 
 @dataclass
 class TaskClusterResult:
-    """Result of K-means task clustering.
+    """Result container for K-means task clustering.
 
     Attributes:
-        clusters:
-            Mapping from cluster index -> list of Task objects in that cluster.
-        centers:
-            Array of shape (K, 2) with cluster centers (x, y).
-        task_to_cluster:
-            Mapping from task.id -> cluster index.
+        clusters: Mapping from cluster index -> list of Task objects assigned
+            to that cluster. Keys are integers in $$[0, K-1]$$.
+        centers: Numpy array of shape $$(K, 2)$$ containing cluster center
+            coordinates $$(x, y)$$ for each cluster index.
+        task_to_cluster: Mapping from task id (int) to the assigned cluster index.
     """
-
     clusters: Dict[int, List[Task]]
     centers: np.ndarray
     task_to_cluster: Dict[int, int]
 
 
 def _extract_task_positions(tasks: List[Task]) -> np.ndarray:
-    """Return an (N, 2) array of (x, y) positions from a list of tasks."""
+    """Return an array of shape $$(N, 2)$$ containing the 2D positions
+    extracted from a list of Task objects.
+
+    Each row corresponds to a task and contains $$(x, y)$$ as floats.
+    """
     return np.array(
         [[t.position[0], t.position[1]] for t in tasks],
         dtype=float,
@@ -42,22 +56,22 @@ def cluster_tasks_kmeans(
     n_clusters: int,
     random_state: int = 42,
 ) -> TaskClusterResult:
-    """Cluster tasks into K groups using K-means on their 2D positions.
+    """Cluster tasks into $$K$$ groups using K-means on their 2D positions.
 
     Args:
-        tasks:
-            List of Task objects with 2D positions.
-        n_clusters:
-            Number of clusters (typically equal to number of UAVs).
-        random_state:
-            Random seed for reproducibility.
+        tasks: list of Task objects (each must have a 2D `position`).
+        n_clusters: desired number of clusters $$K$$ (commonly equal to number of UAVs).
+        random_state: seed for KMeans initialization for reproducibility.
 
     Returns:
-        TaskClusterResult with clusters, centers, and task->cluster mapping.
+        TaskClusterResult containing:
+        - clusters: dict mapping cluster index -> List[Task]
+        - centers: $$K \times 2$$ array with cluster centers
+        - task_to_cluster: mapping from task id -> cluster index
 
     Raises:
-        ValueError:
-            If n_clusters <= 0 or n_clusters > number of tasks.
+        ValueError: if `tasks` is empty, or if `n_clusters` is not in $$[1, N]$$
+                    where $$N$$ is the number of tasks.
     """
     if not tasks:
         raise ValueError("tasks list must be non-empty")
@@ -66,7 +80,7 @@ def cluster_tasks_kmeans(
     if n_clusters > len(tasks):
         raise ValueError("n_clusters cannot exceed number of tasks")
 
-
+    # Build data matrix for K-means: shape (N, 2)
     X = _extract_task_positions(tasks)
 
     kmeans = KMeans(
@@ -77,6 +91,7 @@ def cluster_tasks_kmeans(
     labels = kmeans.fit_predict(X)
     centers = kmeans.cluster_centers_
 
+    # Organize tasks by cluster label and construct id->cluster map
     clusters: Dict[int, List[Task]] = {i: [] for i in range(n_clusters)}
     task_to_cluster: Dict[int, int] = {}
 
@@ -96,24 +111,32 @@ def assign_clusters_to_uavs_by_proximity(
     uavs: List[UAV],
     cluster_centers: np.ndarray,
 ) -> Dict[int, int]:
-    """Assign each cluster to a distinct UAV, approximately by proximity.
+    """Assign each cluster to a distinct UAV by approximate proximity.
 
-    We build a cost matrix of squared Euclidean distances between
-    each UAV's current (x, y) position and each cluster center, then
-    greedily select the lowest-cost pairs without reusing UAVs or clusters.
+    This routine forms a cost matrix of squared Euclidean distances between
+    each UAV position and each cluster center, then calls a greedy assignment
+    routine to produce a one-to-one mapping from clusters to UAVs.
+
+    Requirements and behavior:
+    - `cluster_centers` must be an array of shape $$(K, 2)$$.
+    - The function currently expects $$K = \text{len(uavs)}$$ (one cluster per UAV).
+      If the numbers differ a ValueError is raised.
+    - Costs are squared Euclidean distances (no sqrt) so:
+      $$\text{cost}_{i,j} = (x_{c_j} - x_{u_i})^2 + (y_{c_j} - y_{u_i})^2.$$
+    - The greedy global assignment function `greedy_global_assign_int` is used to
+      select worker-task pairs (here UAV-cluster pairs) without reuse of UAVs
+      or clusters. The returned mapping is cluster_index -> uav_id.
 
     Args:
-        uavs:
-            List of UAV objects. `uav.position` is (x, y, heading).
-        cluster_centers:
-            Array of shape (K, 2) with K cluster centers.
+        uavs: list of UAV objects; each `uav.position` is $$(x,y,heading)$$.
+        cluster_centers: numpy array of cluster centers shape $$(K,2)$$.
 
     Returns:
-        Mapping from cluster index -> UAV id.
+        Dictionary mapping `cluster_index -> uav.id`.
 
     Raises:
-        ValueError:
-            If the number of clusters differs from the number of UAVs.
+        ValueError: if `cluster_centers` does not have shape $$(K,2)$$ or if
+                    $$K \ne \text{len(uavs)}$$.
     """
     cluster_centers = np.asarray(cluster_centers, dtype=float)
     if cluster_centers.ndim != 2 or cluster_centers.shape[1] != 2:
@@ -126,32 +149,56 @@ def assign_clusters_to_uavs_by_proximity(
             "for this assignment rule."
         )
 
-    # Build cost matrix: costs[i, j] = dist^2 between UAV i and cluster j
+    # Build cost matrix: squared Euclidean distances between UAV i and cluster j
     costs = np.zeros((K, K), dtype=float)
     for i, uav in enumerate(uavs):
-        ux, uy, _ = uav.position  # ignore heading for clustering
+        ux, uy, _ = uav.position  # heading ignored for clustering
         for j in range(K):
             cx, cy = cluster_centers[j]
             dx = cx - ux
             dy = cy - uy
             costs[i, j] = dx * dx + dy * dy
-    # Greedy assignment of clusters to UAVs
-    cluster_to_uav: Dict[int, int] = {}
+
+    # Greedy integer assignment returns a list `assignment` of length K where
+    # assignment[i] = j indicates UAV i -> cluster j (or -1 if unassigned).
     assignment = greedy_global_assign_int(costs)
+
+    # Convert assignment (indexed by UAV index) to mapping cluster_index -> uav_id
+    cluster_to_uav: Dict[int, int] = {}
     for i in range(K):
-        cluster_to_uav[assignment[i]]=uavs[i].id   
+        assigned_cluster = assignment[i]
+        if assigned_cluster is not None and assigned_cluster >= 0:
+            # Map cluster index -> UAV id
+            cluster_to_uav[assigned_cluster] = uavs[i].id
     return cluster_to_uav
 
-def cluster_tasks(world:World) -> Optional[Dict[int, Set[int]]]:
+
+def cluster_tasks(world: World) -> Optional[Dict[int, Set[int]]]:
+    """High-level clustering pipeline that assigns unassigned tasks to idle UAVs.
+
+    Steps performed:
+    1. Collect unassigned Task objects from `world.unassigned`.
+    2. If there are no unassigned tasks or no idle UAVs, return None.
+    3. Choose $$K = \min(\#\text{idle\_uavs}, \#\text{unassigned\_tasks})$$ clusters.
+    4. Run `cluster_tasks_kmeans` to partition tasks into $$K$$ clusters.
+    5. Map clusters to idle UAVs using `assign_clusters_to_uavs_by_proximity`.
+    6. For each assigned cluster `k -> uid`, update:
+        - `world.uavs[uid].cluster` as the set of task ids in cluster `k`.
+        - `world.uavs[uid].cluster_CoG` as the cluster center coordinates (floats).
+    7. Return a dictionary mapping `uav_id -> set(task_ids)` for the newly assigned clusters.
+
+    Returns:
+        A mapping `uid -> set(task_ids)` when clustering occurs, or None if no
+        clustering was performed (e.g., no idle UAVs or no unassigned tasks).
     """
-    """
-    # Build list of unassigned Task objects
+    # Collect Task objects for unassigned task ids
     unassigned_tasks = [world.tasks[tid] for tid in world.unassigned]
     if not unassigned_tasks or not world.idle_uavs:
-        return None  # or just return if type is None
-    result={}
+        return None  # Nothing to cluster
 
-    # Cluster tasks
+    result: Dict[int, Set[int]] = {}
+
+    # Choose number of clusters: at most the number of idle UAVs and the number of tasks
     K = min(len(world.idle_uavs), len(unassigned_tasks))
     clustering_result = cluster_tasks_kmeans(
         unassigned_tasks,
@@ -159,18 +206,18 @@ def cluster_tasks(world:World) -> Optional[Dict[int, Set[int]]]:
         random_state=0,
     )
 
-    # Map clusters to idle UAVs by proximity
+    # Map clusters to idle UAVs ordered arbitrarily as a list
     idle_uavs_list = [world.uavs[uid] for uid in world.idle_uavs]
     cluster_to_uav = assign_clusters_to_uavs_by_proximity(
         idle_uavs_list,
         clustering_result.centers,
     )
 
+    # Update world.uavs for each assigned cluster
     for k, uid in cluster_to_uav.items():
-        world.uavs[uid].cluster={t.id for t in clustering_result.clusters[k]}
+        world.uavs[uid].cluster = {t.id for t in clustering_result.clusters[k]}
         cx, cy = clustering_result.centers[k]
         world.uavs[uid].cluster_CoG = (float(cx), float(cy))
         result[uid] = world.uavs[uid].cluster
     
     return result
-    
