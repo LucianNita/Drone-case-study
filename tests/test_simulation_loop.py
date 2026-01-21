@@ -154,9 +154,9 @@ def test_simulate_mission_completes_single_task():
     # UAV should not be busy or transit anymore
     u = world.uavs[1]
     assert 1 not in world.busy_uavs
-    assert 1 not in world.transit_uavs
+    assert 1 not in world.damaged_uavs
     # Depending on timing, UAV may be idle at base or in transit returning;
-    assert u.state in (0, 1, 3)
+    assert u.state in (0, 1)
 
 
 def test_simulate_mission_respects_max_time_limit():
