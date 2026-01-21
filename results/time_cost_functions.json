@@ -1,0 +1,25 @@
+{
+  "results": [
+    {
+      "method": "Euclidean",
+      "total_time_s": 0.00048639997839927673,
+      "avg_time_per_call_s": 9.727999567985534e-08,
+      "n_pairs": 50,
+      "n_repeat": 100
+    },
+    {
+      "method": "CS_type_Dubins",
+      "total_time_s": 0.03126009996049106,
+      "avg_time_per_call_s": 6.252019992098212e-06,
+      "n_pairs": 50,
+      "n_repeat": 100
+    },
+    {
+      "method": "CSC_type_Dubins",
+      "total_time_s": 0.06068469997262582,
+      "avg_time_per_call_s": 1.2136939994525164e-05,
+      "n_pairs": 50,
+      "n_repeat": 100
+    }
+  ]
+}
