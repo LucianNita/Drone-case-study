@@ -5,6 +5,9 @@ from multi_uav_planner.assignment import (
     assignment,
     compute_cost,
     greedy_global_assign_int,
+    auction_assign,
+    simulated_annealing_assignment,
+    hungarian_assign
 )
 from multi_uav_planner.world_models import World, UAV, PointTask, Tolerances
 from multi_uav_planner.clustering import cluster_tasks_kmeans, assign_clusters_to_uavs_by_proximity
@@ -84,12 +87,12 @@ def test_greedy_global_assign_int_basic_assignment():
     # Worker 1 should then take task 1 (cost 1.5)
     assert assign[0] == 0
     assert assign[1] == 1
-    assert -1 not in assign.values()
+    assert -1 not in assign
 
 
 def test_greedy_global_assign_int_handles_empty_cost():
     assign = greedy_global_assign_int([], unassigned_value=-1)
-    assert assign == {}
+    assert assign == []
 
 
 def test_greedy_global_assign_int_allows_unassigned_workers():
@@ -281,3 +284,158 @@ def test_assignment_prbdd_handles_empty_cluster_for_a_uav():
     # u1 stays idle, u2 becomes transit
     assert 1 in world.idle_uavs and 1 not in world.transit_uavs
     assert 2 not in world.idle_uavs and 2 in world.transit_uavs
+
+# ----------------------------------------------------------------------
+# Tests for auction_assign (AA)
+# ----------------------------------------------------------------------
+
+def test_auction_assign_basic_minimization():
+    # 2 workers, 3 tasks
+    # Optimal assignment (min total cost) is:
+    #  worker 0 -> task 1 (cost 1)
+    #  worker 1 -> task 0 (cost 1)
+    cost = [
+        [5.0, 1.0, 3.0],  # worker 0
+        [1.0, 4.0, 2.0],  # worker 1
+    ]
+    assign = auction_assign(cost, alpha=5.0, unassigned_value=-1)
+
+    assert len(assign) == 2
+    # Check that each worker is assigned some task
+    assert assign[0] in {0, 1, 2}
+    assert assign[1] in {0, 1, 2}
+
+    # Compute total cost and ensure it's <= a clearly suboptimal alternative
+    total = cost[0][assign[0]] + cost[1][assign[1]]
+
+    # A clearly suboptimal pairing: (0->0, 1->2) has cost 5 + 2 = 7
+    assert total <= 7.0
+
+
+def test_auction_assign_allows_unassigned_when_n_greater_than_m():
+    # 3 workers, 2 tasks (n > m)
+    # auction_assign should pad with dummy tasks and then map them to -1.
+    cost = [
+        [1.0, 2.0],  # worker 0
+        [2.0, 1.0],  # worker 1
+        [5.0, 5.0],  # worker 2 (equally bad for both)
+    ]
+    assign = auction_assign(cost, alpha=5.0, unassigned_value=-1)
+
+    assert len(assign) == 3
+
+    # Two workers should get real tasks in {0,1}, one should be unassigned (-1)
+    real_assignments = [j for j in assign if j != -1]
+    assert len(real_assignments) == 2
+    assert set(real_assignments).issubset({0, 1})
+    # At least one worker is unassigned
+    assert -1 in assign
+
+# ----------------------------------------------------------------------
+# Tests for simulated_annealing_assignment (SA)
+# ----------------------------------------------------------------------
+
+def test_simulated_annealing_assignment_basic_minimization():
+    # Same cost matrix as auction test
+    cost = [
+        [5.0, 1.0, 3.0],  # worker 0
+        [1.0, 4.0, 2.0],  # worker 1
+    ]
+    # Use a small T_final and modest iterations for test speed
+    assign = simulated_annealing_assignment(
+        cost,
+        T0=10.0,
+        alpha=0.9,
+        N=50,
+        T_final=0.5,
+        N_it_max=2000,
+        init="greedy",
+        seed=123,
+        unassigned_value=-1,
+    )
+
+    assert len(assign) == 2
+    assert assign[0] in {0, 1, 2}
+    assert assign[1] in {0, 1, 2}
+
+    # Compute total cost
+    total = cost[0][assign[0]] + cost[1][assign[1]]
+
+    # Clearly suboptimal pairing has cost 7 (0->0, 1->2)
+    assert total <= 7.0
+
+
+def test_simulated_annealing_assignment_allows_unassigned_when_n_greater_than_m():
+    # 3 workers, 2 tasks (n > m)
+    cost = [
+        [1.0, 2.0],  # worker 0
+        [2.0, 1.0],  # worker 1
+        [5.0, 5.0],  # worker 2 (bad for all)
+    ]
+    assign = simulated_annealing_assignment(
+        cost,
+        T0=10.0,
+        alpha=0.9,
+        N=50,
+        T_final=0.5,
+        N_it_max=2000,
+        init="greedy",
+        seed=456,
+        unassigned_value=-1,
+    )
+
+    assert len(assign) == 3
+
+    real_assignments = [j for j in assign if j != -1]
+    # Exactly two real tasks in {0,1} and one unassigned
+    assert len(real_assignments) == 2
+    assert set(real_assignments).issubset({0, 1})
+    assert -1 in assign
+
+
+# ----------------------------------------------------------------------
+# Tests for hungarian_assign (HBA)
+# ----------------------------------------------------------------------
+
+def test_hungarian_assign_basic_optimal_assignment():
+    # 2 workers, 3 tasks.
+    # Optimal minimum-cost assignment:
+    #   worker 0 -> task 1 (cost 1)
+    #   worker 1 -> task 0 (cost 1)
+    cost = [
+        [5.0, 1.0, 3.0],  # worker 0
+        [1.0, 4.0, 2.0],  # worker 1
+    ]
+    assign = hungarian_assign(cost, unassigned_value=-1)
+
+    assert len(assign) == 2
+    # Each worker must be assigned some task index in [0,2]
+    assert assign[0] in {0, 1, 2}
+    assert assign[1] in {0, 1, 2}
+
+    total = cost[0][assign[0]] + cost[1][assign[1]]
+
+    # Optimal total cost is 2 (0->1, 1->0).
+    # Any obviously worse combination (e.g. 0->0,1->2) has cost 7.
+    assert total <= 2.0
+    # and strictly better than that bad pairing
+    assert total < 7.0
+
+
+def test_hungarian_assign_allows_unassigned_when_more_workers_than_tasks():
+    # 3 workers, 2 tasks (n > m).
+    # SciPy's linear_sum_assignment will assign at most min(n, m) pairs.
+    cost = [
+        [1.0, 2.0],  # worker 0
+        [2.0, 1.0],  # worker 1
+        [5.0, 5.0],  # worker 2 (bad for all)
+    ]
+    assign = hungarian_assign(cost, unassigned_value=-1)
+
+    assert len(assign) == 3
+
+    # Two workers should get real tasks, one should remain unassigned (-1)
+    real_assignments = [j for j in assign if j != -1]
+    assert len(real_assignments) == 2
+    assert set(real_assignments).issubset({0, 1})
+    assert -1 in assign

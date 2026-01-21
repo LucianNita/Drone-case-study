@@ -7,7 +7,6 @@ from multi_uav_planner.stepping_fcts import (
     move_in_transit,
     perform_task,
     pose_update,
-    compute_percentage_along_path,
 )
 from multi_uav_planner.path_planner import plan_mission_path, plan_path_to_task
 
@@ -63,55 +62,6 @@ def make_simple_world(uav: UAV, task: Task) -> World:
 
 
 # ----------------------------------------------------------------------
-# Tests: compute_percentage_along_path
-# ----------------------------------------------------------------------
-
-def test_compute_percentage_along_line_segment():
-    seg = LineSegment(start=(0.0, 0.0), end=(10.0, 0.0))
-
-    frac0 = compute_percentage_along_path((0.0, 0.0, 0.0), seg, atol=1e-3)
-    assert frac0 == pytest.approx(0.0)
-
-    frac_half = compute_percentage_along_path((5.0, 0.0, 0.0), seg, atol=1e-3)
-    assert frac_half == pytest.approx(0.5, rel=1e-6)
-
-    frac1 = compute_percentage_along_path((10.0, 0.0, 0.0), seg, atol=1e-3)
-    assert frac1 == pytest.approx(1.0, rel=1e-6)
-
-
-def test_compute_percentage_along_line_segment_off_path():
-    seg = LineSegment(start=(0.0, 0.0), end=(10.0, 0.0))
-
-    frac = compute_percentage_along_path((5.0, 3.0, 0.0), seg, atol=1e-3)
-    traveled = math.hypot(5.0, 3.0)
-    assert frac == pytest.approx(traveled / seg.length())
-
-
-def test_compute_percentage_along_curve_ccw():
-    seg = CurveSegment(center=(0.0, 0.0), radius=1.0, theta_s=0.0, d_theta=math.pi/2)
-
-    start_heading = (seg.theta_s + math.pi/2) % (2*math.pi)
-    frac0 = compute_percentage_along_path((1.0, 0.0, start_heading), seg, atol=1e-2)
-    assert frac0 == pytest.approx(0.0, abs=1e-2)
-
-    end_heading = (seg.theta_s + seg.d_theta + math.pi/2) % (2*math.pi)
-    frac1 = compute_percentage_along_path((0.0, 1.0, end_heading), seg, atol=1e-2)
-    assert frac1 == pytest.approx(1.0, abs=1e-2)
-
-
-def test_compute_percentage_along_curve_cw():
-    seg = CurveSegment(center=(0.0, 0.0), radius=1.0, theta_s=0.0, d_theta=-math.pi/2)
-
-    start_heading = (seg.theta_s - math.pi/2) % (2*math.pi)
-    frac0 = compute_percentage_along_path((1.0, 0.0, start_heading), seg, atol=1e-2)
-    assert frac0 == pytest.approx(0.0, abs=1e-2)
-
-    end_heading = (seg.theta_s + seg.d_theta - math.pi/2) % (2*math.pi)
-    frac1 = compute_percentage_along_path((0.0, -1.0, end_heading), seg, atol=1e-2)
-    assert frac1 == pytest.approx(1.0, abs=1e-2)
-
-
-# ----------------------------------------------------------------------
 # Tests: pose_update
 # ----------------------------------------------------------------------
 
@@ -151,20 +101,11 @@ def test_pose_update_curve_follows_arc():
     assert h == pytest.approx(math.pi, abs=1e-2)
 
 
-def test_pose_update_no_path_no_change():
-    uav = make_uav(position=(1.0, 2.0, 0.3))
-    uav.assigned_path = None
-
-    pose_update(uav, dt=1.0, atol=1e-3)
-    assert uav.position == (1.0, 2.0, 0.3)
-    assert uav.current_range == pytest.approx(0.0)
-
-
 # ----------------------------------------------------------------------
 # Tests: move_in_transit
 # ----------------------------------------------------------------------
 
-def test_move_in_transit_switches_to_busy_when_path_finished(monkeypatch):
+def test_move_in_transit_moves_and_leaves_uav_ready_for_next_step(monkeypatch):
     uav = make_uav(position=(0.0, 0.0, 0.0), speed=10.0, turn_radius=10.0, state=1)
     task = make_point_task(1, pos=(10.0, 0.0))
     world = make_simple_world(uav, task)
@@ -179,18 +120,58 @@ def test_move_in_transit_switches_to_busy_when_path_finished(monkeypatch):
     def fake_plan_mission_path(u: UAV, t: Task) -> Path:
         return Path([LineSegment(start=t.position, end=(t.position[0] + 10.0, t.position[1]))])
 
-    monkeypatch.setattr("multi_uav_planner.stepping_fcts.plan_mission_path", fake_plan_mission_path)
+    monkeypatch.setattr(
+        "multi_uav_planner.stepping_fcts.plan_mission_path",
+        fake_plan_mission_path,
+    )
 
     moved = move_in_transit(world, dt=1.0)
 
+    # We should have moved to the end of the transit segment
     assert moved is True
     assert uav.position[0] == pytest.approx(10.0)
+    assert uav.position[1] == pytest.approx(0.0)
+
+    # Path segment should be consumed, but state is still transit;
+    # the next call will switch to busy and plan the mission path.
+    assert uav.state == 1
+    assert uav.id in world.transit_uavs
+    assert uav.id not in world.busy_uavs
+    assert uav.assigned_path is not None
+    assert len(uav.assigned_path.segments) == 0
+
+def test_move_in_transit_second_call_switches_to_busy(monkeypatch):
+    uav = make_uav(position=(0.0, 0.0, 0.0), speed=10.0, turn_radius=10.0, state=1)
+    task = make_point_task(1, pos=(10.0, 0.0))
+    world = make_simple_world(uav, task)
+
+    world.idle_uavs.clear()
+    world.transit_uavs = {uav.id}
+    world.unassigned.remove(task.id)
+    world.assigned.add(task.id)
+    uav.current_task = task.id
+    uav.assigned_path = Path([LineSegment(start=(0.0, 0.0), end=(10.0, 0.0))])
+
+    def fake_plan_mission_path(u: UAV, t: Task) -> Path:
+        return Path([LineSegment(start=t.position, end=(t.position[0] + 10.0, t.position[1]))])
+
+    monkeypatch.setattr(
+        "multi_uav_planner.stepping_fcts.plan_mission_path",
+        fake_plan_mission_path,
+    )
+
+    # after first call, the path is empty but still transit
+    move_in_transit(world, dt=1.0)
+
+    # Second call should switch to busy and create mission path
+    moved = move_in_transit(world, dt=1.0)
+
+    assert moved is False  # just switching state, no motion
     assert uav.state == 2
     assert uav.id in world.busy_uavs
     assert uav.id not in world.transit_uavs
     assert isinstance(uav.assigned_path, Path)
     assert len(uav.assigned_path.segments) == 1
-
 
 def test_move_in_transit_no_path_immediately_switches_to_busy(monkeypatch):
     uav = make_uav(position=(0.0, 0.0, 0.0), speed=10.0, state=1)
@@ -272,7 +253,7 @@ def test_perform_task_no_path_treated_as_finished():
 # ----------------------------------------------------------------------
 
 def test_transit_then_task_full_cycle(monkeypatch):
-    uav = make_uav(position=(0.0, 0.0, 0.0), speed=10.0, turn_radius=10.0, state=0)
+    uav = make_uav(position=(0.0, 0.0, 0.0), speed=10.0, turn_radius=10.0, state=1)
     task = make_point_task(1, pos=(10.0, 0.0))
     world = make_simple_world(uav, task)
 
@@ -288,14 +269,21 @@ def test_transit_then_task_full_cycle(monkeypatch):
         lambda u, t: Path([LineSegment(start=t.position, end=(t.position[0] + 5.0, t.position[1]))]),
     )
 
+    # First transit step: move to end, still in transit
     move_in_transit(world, dt=1.0)
+    assert uav.state == 1
+    assert uav.id in world.transit_uavs
+    assert len(uav.assigned_path.segments) == 0
 
+    # Second transit step: switch to busy and get mission path 
+    move_in_transit(world, dt=0.0)
     assert uav.state == 2
     assert uav.id in world.busy_uavs
     assert uav.id not in world.transit_uavs
     assert isinstance(uav.assigned_path, Path)
     assert len(uav.assigned_path.segments) == 1
 
+    # Coverage: half step, then full completion
     perform_task(world, dt=0.5)
     perform_task(world, dt=10.0)
 

@@ -8,6 +8,7 @@ import numpy as np
 from sklearn.cluster import KMeans
 
 from .world_models import Task, UAV, World
+from multi_uav_planner.assignment import greedy_global_assign_int
 
 
 @dataclass
@@ -134,29 +135,11 @@ def assign_clusters_to_uavs_by_proximity(
             dx = cx - ux
             dy = cy - uy
             costs[i, j] = dx * dx + dy * dy
-
     # Greedy assignment of clusters to UAVs
     cluster_to_uav: Dict[int, int] = {}
-    used_uavs = set()
-    used_clusters = set()
-
-    pairs = [
-        (costs[i, j], i, j)
-        for i in range(K)
-        for j in range(K)
-    ]
-    pairs.sort(key=lambda x: x[0])
-
-    for _, i, j in pairs:
-        if i in used_uavs or j in used_clusters:
-            continue
-        uav_id = uavs[i].id
-        cluster_to_uav[j] = uav_id
-        used_uavs.add(i)
-        used_clusters.add(j)
-        if len(used_clusters) == K:
-            break
-
+    assignment = greedy_global_assign_int(costs)
+    for i in range(K):
+        cluster_to_uav[assignment[i]]=uavs[i].id   
     return cluster_to_uav
 
 def cluster_tasks(world:World) -> Optional[Dict[int, Set[int]]]:

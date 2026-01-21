@@ -1,5 +1,5 @@
 from multi_uav_planner.path_planner import plan_mission_path,plan_path_to_task
-from multi_uav_planner.world_models import PointTask, UAV, World
+from multi_uav_planner.world_models import UAV, World
 from typing import Tuple
 from multi_uav_planner.path_model import Segment,CurveSegment,LineSegment
 import math
@@ -20,21 +20,11 @@ def move_in_transit(world: World, dt: float) -> bool:
                 uav.assigned_path = plan_mission_path(uav, world.tasks[tid])
             continue
         # We have a non-empty path: check if current segment is finished
-        seg = path.segments[0]
-        pose_update(uav, dt, world.tols.ang)
+        flag=pose_update(uav, dt, world.tols.ang)
         moved = True
-        if compute_percentage_along_path(uav.position, seg, world.tols.ang) >= 1.0:
+        if flag:
             # Drop segment
             path.segments.pop(0)
-            if not path.segments:
-                # Done with transit
-                world.transit_uavs.remove(j)
-                world.busy_uavs.add(j)
-                uav.state = 2
-                tid = uav.current_task
-                if tid is not None:
-                    uav.assigned_path = plan_mission_path(uav, world.tasks[tid])
-            # no movement this tick, but we’ve updated state
     return moved
 
 def perform_task(world: World, dt: float) -> bool:
@@ -42,6 +32,13 @@ def perform_task(world: World, dt: float) -> bool:
     for j in list(world.busy_uavs):
         uav = world.uavs[j]
         path = uav.assigned_path
+
+        if path and path.segments:
+            flag=pose_update(uav, dt, world.tols.ang)
+            moved = True
+            if flag:
+                path.segments.pop(0)
+        
         if path is None or not path.segments:
             # No mission path ⇒ treat as finished
             tid = uav.current_task
@@ -62,34 +59,7 @@ def perform_task(world: World, dt: float) -> bool:
                         uav.cluster_CoG = (sum(xs) / len(xs), sum(ys) / len(ys))
                     else:
                         uav.cluster_CoG = None
-
-            continue
-
-        seg = path.segments[0]
-        pose_update(uav, dt, world.tols.ang)
-        moved = True
-        if compute_percentage_along_path(uav.position, seg, world.tols.ang) >= 1.0:
-            path.segments.pop(0)
-            if not path.segments:
-                # Finished coverage
-                tid = uav.current_task
-                world.busy_uavs.remove(j)
-                world.idle_uavs.add(j)
-                uav.state = 0
-                uav.assigned_path = None
-                if tid is not None:
-                    world.tasks[tid].state = 2
-                    world.assigned.discard(tid)
-                    world.completed.add(tid)
-                    uav.current_task = None
-                    if tid in uav.cluster:
-                        uav.cluster.remove(tid)
-                        if uav.cluster:
-                            xs = [world.tasks[t].position[0] for t in uav.cluster]
-                            ys = [world.tasks[t].position[1] for t in uav.cluster]
-                            uav.cluster_CoG = (sum(xs) / len(xs), sum(ys) / len(ys))
-                        else:
-                            uav.cluster_CoG = None
+                
     return moved
 
 def return_to_base(world):
@@ -103,7 +73,7 @@ def return_to_base(world):
 
 
 
-def pose_update(uav: UAV, dt: float, atol: float) -> None:
+def pose_update(uav: UAV, dt: float, atol: float) -> bool:
     """
     Mutate uav.position in place according to the first segment in uav.assigned_path.
     - For LineSegment: move along straight line.
@@ -111,9 +81,6 @@ def pose_update(uav: UAV, dt: float, atol: float) -> None:
     """
 
     path = uav.assigned_path
-    if path is None or not path.segments:
-        return
-
     seg = path.segments[0]
 
     x, y, heading = uav.position
@@ -125,60 +92,48 @@ def pose_update(uav: UAV, dt: float, atol: float) -> None:
         ex, ey = seg.end
         dx, dy = ex - sx, ey - sy
         L = math.hypot(dx, dy)
-
-        if L == 0.0:
+        if L == 0:
             uav.position = (ex, ey, heading)
-            return
+            return True
 
-        step=distance/L
+        # current progress along segment:
+        ds_x = x - sx
+        ds_y = y - sy
+        s_curr = math.hypot(ds_x, ds_y)
 
-        uav.position=(x+dx*step,y+dy*step,heading)
-        uav.current_range+=distance
+        s_new = s_curr + distance
+        flag=False
+        if s_new >= L:
+            # clamp to end
+            s_new = L
+            flag=True
+        ratio = s_new / L
+        new_x = sx + ratio * dx
+        new_y = sy + ratio * dy
+        line_heading = math.atan2(dy, dx)
+        uav.position = (new_x, new_y, line_heading)
+        uav.current_range += distance
 
-        if compute_percentage_along_path(uav.position,seg, atol)>1.0:
-            uav.position=(ex,ey,heading)
-        return None
+        return flag
     elif isinstance(seg, CurveSegment):
         # Simplified circular motion update
         angle_traveled=distance/seg.radius
-        dp=angle_traveled/abs(seg.d_theta)
 
-        if compute_percentage_along_path(uav.position,seg, atol)+dp>1.0:
+        if abs(angle_traveled)>abs(seg.d_theta):
+            flag=True
             p0=seg.center[0]+seg.radius*math.cos(seg.theta_s+seg.d_theta)
             p1=seg.center[1]+seg.radius*math.sin(seg.theta_s+seg.d_theta)
             p2=(seg.d_theta+seg.theta_s+np.sign(seg.d_theta)*math.pi/2)%(2*math.pi)
         else:
-            p0=seg.center[0]+math.cos(angle_traveled)*(x-seg.center[0])-math.sin(angle_traveled)*(y-seg.center[1])
-            p1=seg.center[1]+math.sin(angle_traveled)*(x-seg.center[0])+math.cos(angle_traveled)*(y-seg.center[1])
-            p2=heading+angle_traveled*np.sign(seg.d_theta)
+            flag=False
+            delta = angle_traveled * np.sign(seg.d_theta)
+            cos_d, sin_d = math.cos(delta), math.sin(delta)
+            vx, vy = x - seg.center[0], y - seg.center[1]
+            p0 = seg.center[0] + cos_d * vx - sin_d * vy
+            p1 = seg.center[1] + sin_d * vx + cos_d * vy
+            p2 = heading + delta
+            seg.d_theta-=delta
+            seg.theta_s+=delta
         uav.current_range+=distance
         uav.position=(p0,p1,p2)
-        return None
-
-def compute_percentage_along_path(
-    position: Tuple[float, float, float],
-    segment: Segment,
-    atol: float
-) -> float:
-
-    x, y, heading = position
-
-    if isinstance(segment, LineSegment):
-        total_length = segment.length()
-        ds_x = x - segment.start[0]
-        ds_y = y - segment.start[1]
-        traveled_length = math.hypot(ds_x, ds_y)
-        return traveled_length / total_length
-    elif isinstance(segment, CurveSegment):
-        curr_d_theta=(heading-(segment.theta_s+np.sign(segment.d_theta)*math.pi/2))%(2*math.pi)
-
-        end_heading = (segment.theta_s + segment.d_theta + math.copysign(math.pi/2, segment.d_theta)) % (2*math.pi)
-        if abs(ang_diff(heading, end_heading)) <= atol:
-            return 1.0
-        
-        return curr_d_theta/abs(segment.d_theta)
-    else:
-        raise TypeError(f"Unsupported segment type: {type(segment)}")
-    
-def ang_diff(a, b):
-    return ((a - b) + math.pi) % (2*math.pi) - math.pi
+        return flag
