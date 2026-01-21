@@ -1,7 +1,8 @@
 site_name: Multi-UAV Planner
 site_description: "Python implementation of a dynamic real-time multi-UAV cooperative mission planning algorithm based on Dubins paths"
 site_url: https://luciannita.github.io/Drone-case-study/
-repo_url: https://github.com/LucianNita/Drone-case-study.git
+repo_url: https://github.com/LucianNita/Drone-case-study   # remove.git
+
 theme:
   name: material
   palette:
@@ -33,28 +34,16 @@ theme:
     - content.code.copy
     - content.tabs.link
     - header.autohide
+
 extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/LucianNita/Drone-case-study
+
 extra_css:
   - styles/extra.css
-markdown_extensions:
-  - admonition
-  - toc:
-      permalink: true
-  - pymdownx.superfences
-  - pymdownx.details
-plugins:
-  - search
-  - mkdocstrings:
-      handlers:
-        python:
-          options:
-            docstring_style: google
-            show_source: true
-            show_signature_annotations: true
-  - mkdocs-jupyter
+
+# Merge markdown_extensions into a single block
 markdown_extensions:
   - admonition
   - toc:
@@ -64,10 +53,26 @@ markdown_extensions:
   - pymdownx.arithmatex:
       generic: true
 
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]          # <-- let mkdocstrings import directly from src
+          options:
+            docstring_style: google
+            show_source: true
+            show_signature_annotations: true
+            show_root_heading: true
+            merge_init_into_class: true
+            filters: ["!^_"]    # hide private members (optional)
+  - mkdocs-jupyter
+
 extra_javascript:
   - https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js
   - https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js
-  - docs/assets/katex-init.js
+  - assets/katex-init.js        # path should be relative to docs/, not docs/assets
+
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
@@ -84,7 +89,7 @@ nav:
     - Assignment: algorithms/assignment.md
     - Clustering: algorithms/clustering.md
   - API:
-    - multi_uav_planner: api/placeholder.md
+    - multi_uav_planner: api/multi_uav_planner.md   # <-- use mkdocstrings page
   - Dev:
     - Architecture: dev/architecture.md
     - Profiling: dev/profiling.md

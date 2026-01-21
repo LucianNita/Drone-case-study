@@ -27,7 +27,7 @@ Prerequisites:
 Install (editable):
 
 ```bash
-pip install -e.
+pip install -e .
 # Optional for visuals/demos:
 pip install matplotlib numpy scipy scikit-learn
 ```
