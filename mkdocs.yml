@@ -23,7 +23,7 @@ theme:
     code: Fira Code
   icon:
     repo: fontawesome/brands/github
-  logo: assets/logo.png
+  logo: assets/uav.png
   favicon: assets/favicon.png
   features:
     - navigation.tabs
