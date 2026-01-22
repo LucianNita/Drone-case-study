@@ -53,6 +53,14 @@ markdown_extensions:
   - pymdownx.arithmatex:
       generic: true
 
+extra_css:
+  - https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css
+
+extra_javascript:
+  - https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js
+  - https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js
+  - js/math-render.js    # local JS to call renderMathInElement (see below)
+
 plugins:
   - search
   - mkdocstrings:
