@@ -11,7 +11,10 @@ A modular Python toolkit for dynamic, real-time multi-UAV mission planning using
 - Visuals: plotting helpers and demos (kept separate from logging)
 - Post-processing: runtime profiling, run logs, metrics JSON/CSV
 
-Tip: Arc length uses $$L = R \cdot |\Delta \theta|$$ and straight-line length uses $$L = \sqrt{\Delta x^2 + \Delta y^2}$$.
+Tip: Arc length uses 
+$$ L = R \cdot |\Delta \theta| $$ 
+and straight-line length uses 
+$$ L = \sqrt{\Delta x^2 + \Delta y^2} $$.
 
 This project is a **Python implementation** of the algorithm described in:
 

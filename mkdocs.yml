@@ -3,6 +3,7 @@ site_description: "Python implementation of a dynamic real-time multi-UAV cooper
 site_url: https://luciannita.github.io/Drone-case-study/
 repo_url: https://github.com/LucianNita/Drone-case-study   # remove.git
 
+
 theme:
   name: material
   palette:
@@ -56,11 +57,6 @@ markdown_extensions:
 extra_css:
   - https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css
 
-extra_javascript:
-  - https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js
-  - https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js
-  - js/math-render.js    # local JS to call renderMathInElement (see below)
-
 plugins:
   - search
   - mkdocstrings:
@@ -79,7 +75,8 @@ plugins:
 extra_javascript:
   - https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js
   - https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js
-  - assets/katex-init.js        # path should be relative to docs/, not docs/assets
+  - assets/katex-init.js
+  - js/math-render.js
 
 nav:
   - Home: index.md
