@@ -1,0 +1,1748 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Python implementation of a dynamic real-time multi-UAV cooperative mission planning algorithm based on Dubins paths">
+      
+      
+      
+        <link rel="canonical" href="https://luciannita.github.io/Drone-case-study/algorithms/assignment/">
+      
+      
+        <link rel="prev" href="../dubins/">
+      
+      
+        <link rel="next" href="../clustering/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Assignment - Multi-UAV Planner</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CFira+Code:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"Fira Code"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="pink">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#algorithms-assignment" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Multi-UAV Planner" class="md-header__button md-logo" aria-label="Multi-UAV Planner" data-md-component="logo">
+      
+  <img src="../../assets/uav.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Multi-UAV Planner
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Assignment
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="pink"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="pink"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/LucianNita/Drone-case-study" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting Started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../user-guide/scenarios/" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tutorials/path_model_and_dubins/" class="md-tabs__link">
+          
+  
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../dubins/" class="md-tabs__link">
+          
+  
+  
+  Algorithms
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/multi_uav_planner/" class="md-tabs__link">
+          
+  
+  
+  API
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../dev/architecture/" class="md-tabs__link">
+          
+  
+  
+  Dev
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Multi-UAV Planner" class="md-nav__button md-logo" aria-label="Multi-UAV Planner" data-md-component="logo">
+      
+  <img src="../../assets/uav.png" alt="logo">
+
+    </a>
+    Multi-UAV Planner
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/LucianNita/Drone-case-study" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/scenarios/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scenarios
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/plotting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plotting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/simulation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simulation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/path_model_and_dubins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Path + Dubins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/clustering_assignment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Clustering + Assignment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/full_mission/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Full Mission
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Algorithms
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Algorithms
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dubins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dubins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Assignment
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Assignment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#problem-formulation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Problem formulation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cost-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cost models
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Methods
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Methods">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gba-greedy-best-available" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GBA — Greedy Best-Available
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hba-hungarian-kuhnmunkres" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HBA — Hungarian (Kuhn–Munkres)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aa-auction-bertsekas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AA — Auction (Bertsekas)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sa-simulated-annealing-heuristic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SA — Simulated Annealing (heuristic)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rbddg-reduced-assignment-with-dubins-aware-globally" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RBDDG — Reduced assignment with Dubins-aware globally
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prbddg-preprocessed-reduced-by-dubins-distance-with-greedy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PRBDDG — Preprocessed Reduced by Dubins Distance with Greedy
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-these-live-in-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where these live in code
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-one-shot-assignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example: one-shot assignment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#integration-in-the-simulation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration in the simulation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rectangular-matrices-and-unassigned-workers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rectangular matrices and unassigned workers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#complexity-rough" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Complexity (rough)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#proscons-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pros/cons summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-pitfalls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common pitfalls
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../clustering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Clustering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/multi_uav_planner/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    multi_uav_planner
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dev
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Dev
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev/profiling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Profiling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev/contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="algorithms-assignment">Algorithms · Assignment<a class="headerlink" href="#algorithms-assignment" title="Permanent link">&para;</a></h1>
+<p>This page documents the task assignment strategies used in the planner, the cost models behind them (Euclidean vs Dubins), how they map to the code, and when to use each method.</p>
+<h2 id="problem-formulation">Problem formulation<a class="headerlink" href="#problem-formulation" title="Permanent link">&para;</a></h2>
+<p>Given a set of idle UAVs $<span class="arithmatex">\(\mathcal{U}=\{1,\dots,n\}\)</span>$ and a set of candidate unassigned tasks $<span class="arithmatex">\(\mathcal{T}=\{1,\dots,m\}\)</span>$, we build a cost matrix
+$$
+C \in \mathbb{R}^{n \times m}, \quad C_{i,j} \ge 0
+$$
+where $<span class="arithmatex">\(C_{i,j}\)</span>$ is the cost of assigning UAV $<span class="arithmatex">\(i\)</span>$ to task $<span class="arithmatex">\(j\)</span>$ (conceptually interpreted as the path length between UAV $<span class="arithmatex">\(i\)</span>$ and task $<span class="arithmatex">\(j\)</span>). The canonical objective is the linear assignment problem:
+$$
+\min_{x \in {0,1}^{n \times m}} \ \sum_{i=1}^n \sum_{j=1}^m C_{i,j} \, x_{i,j}
+$$
+subject to:
+- Each UAV is assigned to at most one task: $<span class="arithmatex">\(\sum_{j} x_{i,j} \le 1\)</span>$.
+- Each task is assigned to at most one UAV: $<span class="arithmatex">\(\sum_{i} x_{i,j} \le 1\)</span>$.
+- When $<span class="arithmatex">\(m \ge n\)</span>$, one can enforce $<span class="arithmatex">\(\sum_{j} x_{i,j} = 1\)</span>$ (every UAV gets a task); when $<span class="arithmatex">\(m &lt; n\)</span>$, some UAVs remain unassigned.</p>
+<p>In practice, we solve a single round of assignment at each simulation tick for idle UAVs and unassigned tasks.</p>
+<h2 id="cost-models">Cost models<a class="headerlink" href="#cost-models" title="Permanent link">&para;</a></h2>
+<p>Two distance models are available:</p>
+<ul>
+<li>
+<p>Euclidean distance (fast):
+  $$
+  C_{i,j} = |p_j - u_i| = \sqrt{(x_j - x_i)^2 + (y_j - y_i)^2}.
+  $$
+  Use this for quick preselection or global algorithms where exact Dubins-aware planning isn’t required in the cost.</p>
+</li>
+<li>
+<p>Dubins path length (feasible, kinematic-aware):
+  $$
+  C_{i,j} = L^\star(i \to j),
+  $$
+  where $<span class="arithmatex">\(L^\star\)</span>$ is the length of the shortest feasible transit path (straight/CS/CSC as needed). This respects the UAV’s minimum turn radius and entry-heading constraints for the task.</p>
+</li>
+</ul>
+<p>In code, <code>compute_cost(..., use_dubins: bool)</code> selects the model.</p>
+<h2 id="methods">Methods<a class="headerlink" href="#methods" title="Permanent link">&para;</a></h2>
+<p>The project includes multiple assignment strategies:</p>
+<h3 id="gba-greedy-best-available">GBA — Greedy Best-Available<a class="headerlink" href="#gba-greedy-best-available" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Global greedy selection of the single lowest cost pair (worker, task) among remaining pairs, iterated until exhaustion.</li>
+<li>Complexity: $<span class="arithmatex">\(O(nm + \min(n,m)\cdot nm)\)</span>$ in practice; simple and fast.</li>
+<li>Pros: very fast, simple code.</li>
+<li>Cons: may be far from optimal; sensitive to cost geometry.</li>
+</ul>
+<h3 id="hba-hungarian-kuhnmunkres">HBA — Hungarian (Kuhn–Munkres)<a class="headerlink" href="#hba-hungarian-kuhnmunkres" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Finds an optimal assignment (for the given cost matrix), uses SciPy’s <code>linear_sum_assignment</code>.</li>
+<li>Handles rectangular matrices: all workers get an assignment when $<span class="arithmatex">\(m \ge n\)</span>$; when $<span class="arithmatex">\(m &lt; n\)</span>$, some workers remain unassigned.</li>
+<li>Complexity: $<span class="arithmatex">\(O(k^3)\)</span>$ with $<span class="arithmatex">\(k=\max(n,m)\)</span>$; good for moderate sizes.</li>
+<li>Pros: globally optimal on the input cost matrix.</li>
+<li>Cons: heavier than greedy; quality depends on the cost model.</li>
+</ul>
+<h3 id="aa-auction-bertsekas">AA — Auction (Bertsekas)<a class="headerlink" href="#aa-auction-bertsekas" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Distributed-style algorithm that approximately optimizes the linear assignment via bidding/prices.</li>
+<li>Pads rectangular matrices to square with dummy tasks; workers assigned to dummy return unassigned.</li>
+<li>Pros: simple, scalable; tunable $<span class="arithmatex">\(\epsilon\)</span>$‑scaling controls accuracy/speed trade-off.</li>
+<li>Cons: parameter tuning; may be slower than Hungarian for small matrices.</li>
+</ul>
+<h3 id="sa-simulated-annealing-heuristic">SA — Simulated Annealing (heuristic)<a class="headerlink" href="#sa-simulated-annealing-heuristic" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Meta-heuristic that explores assignment space via swaps and (optionally) moves to unassigned tasks; accepts uphill moves probabilistically while temperature is high.</li>
+<li>Uses greedy initialization and proposals (swap/move-to-unassigned).</li>
+<li>Pros: can escape local minima; flexible.</li>
+<li>Cons: may be slow; parameters (temperature schedule) matter; solution quality varies.</li>
+</ul>
+<h3 id="rbddg-reduced-assignment-with-dubins-aware-globally">RBDDG — Reduced assignment with Dubins-aware globally<a class="headerlink" href="#rbddg-reduced-assignment-with-dubins-aware-globally" title="Permanent link">&para;</a></h3>
+<ul>
+<li>“Reduced by Dubins Distance Global”: runs a classic assignment (e.g., greedy) using Dubins costs; transit path is planned with Dubins as well.</li>
+<li>Pros: kinematically consistent distances in cost; robust; faster than full PRBDD in some cases.</li>
+<li>Cons: more expensive than Euclidean; still global (no preprocessing).</li>
+</ul>
+<h3 id="prbddg-preprocessed-reduced-by-dubins-distance-with-greedy">PRBDDG — Preprocessed Reduced by Dubins Distance with Greedy<a class="headerlink" href="#prbddg-preprocessed-reduced-by-dubins-distance-with-greedy" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Cluster-first (KMeans) to reduce decision space; then assign per-UAV within its cluster with Dubins-aware costs, typically greedy.</li>
+<li>Pros: very fast after clustering; close to optimal in many spatial distributions; demonstrated in the paper to perform best on average distance/speed trade-offs.</li>
+<li>Cons: preprocessing adds logic; quality depends on cluster quality; suboptimal in rare cluster pathologies.</li>
+</ul>
+<h2 id="where-these-live-in-code">Where these live in code<a class="headerlink" href="#where-these-live-in-code" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Core API: <code>multi_uav_planner.assignment</code></li>
+<li><code>assignment(world, algo: AlgorithmType) -&gt; Dict[int,int]</code>:<ul>
+<li>Executes the selected algorithm and immediately updates the world with chosen assignments (moves UAVs to transit, creates transit path for RBDDG; other methods may use a straight line by default for performance).</li>
+</ul>
+</li>
+<li>
+<p><code>compute_cost(world, uav_ids, task_ids, use_dubins)</code>:</p>
+<ul>
+<li>Builds the cost matrix and id-index mappings.</li>
+</ul>
+</li>
+<li>
+<p>AlgorithmType values (examples): <code>GBA</code>, <code>HBA</code>, <code>AA</code>, <code>RBDD</code>, <code>PRBDD</code>, <code>SA</code>.</p>
+</li>
+<li>
+<p>Supporting utilities:</p>
+</li>
+<li><code>greedy_global_assign_int(cost, unassigned_value=-1) -&gt; List[int]</code></li>
+<li><code>hungarian_assign(cost, unassigned_value=-1) -&gt; List[int]</code></li>
+<li><code>auction_assign(cost, alpha=5.0, unassigned_value=-1) -&gt; List[int]</code></li>
+<li><code>simulated_annealing_assignment(C,...) -&gt; List[int]</code></li>
+</ul>
+<h2 id="example-one-shot-assignment">Example: one-shot assignment<a class="headerlink" href="#example-one-shot-assignment" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">multi_uav_planner.world_models</span><span class="w"> </span><span class="kn">import</span> <span class="n">World</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">multi_uav_planner.scenario_generation</span><span class="w"> </span><span class="kn">import</span> <span class="n">ScenarioConfig</span><span class="p">,</span> <span class="n">ScenarioType</span><span class="p">,</span> <span class="n">AlgorithmType</span><span class="p">,</span> <span class="n">generate_scenario</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">multi_uav_planner.simulation_loop</span><span class="w"> </span><span class="kn">import</span> <span class="n">simulate_mission</span>
+
+<span class="n">cfg</span> <span class="o">=</span> <span class="n">ScenarioConfig</span><span class="p">(</span>
+    <span class="n">base</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">),</span> <span class="n">area_width</span><span class="o">=</span><span class="mi">2500</span><span class="p">,</span> <span class="n">area_height</span><span class="o">=</span><span class="mi">2500</span><span class="p">,</span>
+    <span class="n">n_uavs</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">n_tasks</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">scenario_type</span><span class="o">=</span><span class="n">ScenarioType</span><span class="o">.</span><span class="n">NONE</span><span class="p">,</span>
+    <span class="n">alg_type</span><span class="o">=</span><span class="n">AlgorithmType</span><span class="o">.</span><span class="n">HBA</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">7</span>
+<span class="p">)</span>
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">generate_scenario</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>
+
+<span class="n">world</span> <span class="o">=</span> <span class="n">World</span><span class="p">(</span><span class="n">tasks</span><span class="o">=</span><span class="p">{},</span> <span class="n">uavs</span><span class="o">=</span><span class="p">{})</span>
+<span class="n">simulate_mission</span><span class="p">(</span><span class="n">world</span><span class="p">,</span> <span class="n">scenario</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">max_time</span><span class="o">=</span><span class="mf">1e5</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;done:&quot;</span><span class="p">,</span> <span class="n">world</span><span class="o">.</span><span class="n">done</span><span class="p">(),</span> <span class="s2">&quot;at_base:&quot;</span><span class="p">,</span> <span class="n">world</span><span class="o">.</span><span class="n">at_base</span><span class="p">())</span>
+</code></pre></div>
+<p>To evaluate just the assignment step (outside the full loop), use <code>compute_cost</code> and one of the solvers:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">multi_uav_planner.assignment</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_cost</span><span class="p">,</span> <span class="n">hungarian_assign</span><span class="p">,</span> <span class="n">greedy_global_assign_int</span>
+<span class="c1"># Choose idle UAVs and unassigned tasks</span>
+<span class="n">u_ids</span> <span class="o">=</span> <span class="n">world</span><span class="o">.</span><span class="n">idle_uavs</span>
+<span class="n">t_ids</span> <span class="o">=</span> <span class="n">world</span><span class="o">.</span><span class="n">unassigned</span>
+
+<span class="c1"># Cost: Euclidean or Dubins path length</span>
+<span class="n">C</span><span class="p">,</span> <span class="n">u_list</span><span class="p">,</span> <span class="n">t_list</span><span class="p">,</span> <span class="n">u_idx</span><span class="p">,</span> <span class="n">t_idx</span> <span class="o">=</span> <span class="n">compute_cost</span><span class="p">(</span><span class="n">world</span><span class="p">,</span> <span class="n">u_ids</span><span class="p">,</span> <span class="n">t_ids</span><span class="p">,</span> <span class="n">use_dubins</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="c1"># Hungarian assignment (optimal on C)</span>
+<span class="n">match</span> <span class="o">=</span> <span class="n">hungarian_assign</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="n">unassigned_value</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># list of length len(u_ids)</span>
+<span class="n">uid_to_tid</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">match</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">j</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+        <span class="n">uid</span> <span class="o">=</span> <span class="n">u_list</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">tid</span> <span class="o">=</span> <span class="n">t_list</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+        <span class="n">uid_to_tid</span><span class="p">[</span><span class="n">uid</span><span class="p">]</span> <span class="o">=</span> <span class="n">tid</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Assignments:&quot;</span><span class="p">,</span> <span class="n">uid_to_tid</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="integration-in-the-simulation">Integration in the simulation<a class="headerlink" href="#integration-in-the-simulation" title="Permanent link">&para;</a></h2>
+<ul>
+<li>PRBDDG:</li>
+<li>At initialization (or while UAVs are idle), clustering partitions unassigned tasks and computes cluster centers.</li>
+<li>For each idle UAV, restrict candidate tasks to its cluster and run greedy assignment with Dubins-aware costs locally.</li>
+<li>
+<p>Update world: the UAV enters transit; a transit path is planned (you can enable Dubins-aware transit for fidelity).</p>
+</li>
+<li>
+<p>RBDDG:</p>
+</li>
+<li>Build the global cost matrix using Dubins path lengths.</li>
+<li>
+<p>After assignment, plan a Dubins-aware transit path immediately for each assigned UAV.</p>
+</li>
+<li>
+<p>GBA / HBA / AA / SA:</p>
+</li>
+<li>In the default code, Euclidean costs are used for speed.</li>
+<li>After assignment, some variants plan transit as a straight line (for lightweight demos). Switch to <code>plan_path_to_task</code> to use Dubins-aware transit for kinematic fidelity.</li>
+</ul>
+<h2 id="rectangular-matrices-and-unassigned-workers">Rectangular matrices and unassigned workers<a class="headerlink" href="#rectangular-matrices-and-unassigned-workers" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Hungarian handles rectangular matrices natively.</li>
+<li>Greedy and Auction handle fewer tasks than UAVs via unassigned markers or dummy padding:</li>
+<li>Greedy returns <code>-1</code> for unassigned workers.</li>
+<li>Auction pads with high-cost dummy tasks; workers mapped to dummy return <code>-1</code>.</li>
+<li>When $<span class="arithmatex">\(m &lt; n\)</span>$ (fewer tasks than UAVs), expect some UAVs to remain idle or to return to base.</li>
+</ul>
+<h2 id="complexity-rough">Complexity (rough)<a class="headerlink" href="#complexity-rough" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Greedy (GBA): $<span class="arithmatex">\(O(nm)\)</span>$ per selection step, repeated $<span class="arithmatex">\(\min(n,m)\)</span>$ times.</li>
+<li>Hungarian (HBA): $<span class="arithmatex">\(O(k^3)\)</span>$ with $<span class="arithmatex">\(k=\max(n,m)\)</span>$.</li>
+<li>Auction (AA): typically near linear in practice for moderate sizes; depends on $<span class="arithmatex">\(\epsilon\)</span>$ and price updates.</li>
+<li>Simulated Annealing (SA): user-chosen budget (iterations); often significantly higher wall-clock than others.</li>
+</ul>
+<h2 id="proscons-summary">Pros/cons summary<a class="headerlink" href="#proscons-summary" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Greedy (GBA): fastest; lowest quality ceiling.</li>
+<li>Hungarian (HBA): optimal on the input matrix; good baseline; heavier.</li>
+<li>Auction (AA): scalable; tunable accuracy vs speed; approximate.</li>
+<li>SA: heuristic; can reach good solutions with time; slow and stochastic.</li>
+<li>RBDDG: Dubins-aware globally; robust quality; moderate speed.</li>
+<li>PRBDDG: cluster-first + Dubins-aware in clusters; fast and near-optimal for many spatial distributions.</li>
+</ul>
+<h2 id="validation-checklist">Validation checklist<a class="headerlink" href="#validation-checklist" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Cost matrix built from the intended model:</li>
+<li>Euclidean for speed, or Dubins for kinematics.</li>
+<li>ID/index mappings consistent:</li>
+<li><code>u_idx[uid]</code> maps rows, <code>t_idx[tid]</code> maps columns.</li>
+<li>One-to-one assignment:</li>
+<li>Each UAV assigned at most one task; tasks not reused.</li>
+<li>World updates coherent:</li>
+<li>Move task ids from <code>unassigned</code> → <code>assigned</code> → <code>completed</code> in sequence.</li>
+<li>Set <code>u.state = 1</code> (transit) and create a transit path (preferably via <code>plan_path_to_task</code>).</li>
+<li>Rectangular handling correct:</li>
+<li>When <code>m &lt; n</code>, unassigned workers have <code>-1</code> and stay idle or return to base.</li>
+</ul>
+<h2 id="common-pitfalls">Common pitfalls<a class="headerlink" href="#common-pitfalls" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Using Euclidean costs in scenarios dominated by heading/turn-radius constraints:</li>
+<li>Results may look short but be kinematically inefficient; compare with Dubins-aware costs for final evaluations.</li>
+<li>Not restoring patched functions after timing runs:</li>
+<li>Always restore originals if you monkey-patch to measure planning time.</li>
+<li>Cluster size/mismatch:</li>
+<li>Ensure $<span class="arithmatex">\(K = \min(\#\text{idle UAVs}, \#\text{unassigned tasks})\)</span>$; if an idle UAV’s cluster is empty, skip or fall back to global assignment.</li>
+</ul>
+<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Hungarian: <code>scipy.optimize.linear_sum_assignment</code></li>
+<li>Auction: Bertsekas, D. P. (1988), “The Auction Algorithm: A Distributed Relaxation Method for the Assignment Problem.”</li>
+<li>Simulated annealing (generic meta-heuristics literature).</li>
+<li>Implementation:</li>
+<li><code>src/multi_uav_planner/assignment.py</code> (solvers and <code>assignment</code>)</li>
+<li><code>src/multi_uav_planner/clustering.py</code> (PRBDDG preprocessing)</li>
+<li><code>src/multi_uav_planner/path_planner.py</code> (transit plan creation)</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/LucianNita/Drone-case-study" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.top", "navigation.sections", "navigation.instant", "toc.integrate", "content.code.copy", "content.tabs.link", "header.autohide"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+      
+        <script src="../../assets/katex-init.js"></script>
+      
+        <script src="../../js/math-render.js"></script>
+      
+    
+  </body>
+</html>

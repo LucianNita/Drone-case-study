@@ -1,0 +1,1701 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Python implementation of a dynamic real-time multi-UAV cooperative mission planning algorithm based on Dubins paths">
+      
+      
+      
+        <link rel="canonical" href="https://luciannita.github.io/Drone-case-study/tutorials/path_model_and_dubins/">
+      
+      
+        <link rel="prev" href="../../user-guide/simulation/">
+      
+      
+        <link rel="next" href="../clustering_assignment/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Path + Dubins - Multi-UAV Planner</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CFira+Code:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"Fira Code"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="pink">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#path_model_and_dubins" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Multi-UAV Planner" class="md-header__button md-logo" aria-label="Multi-UAV Planner" data-md-component="logo">
+      
+  <img src="../../assets/uav.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Multi-UAV Planner
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Path + Dubins
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="pink"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="pink"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/LucianNita/Drone-case-study" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting Started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../user-guide/scenarios/" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
+          
+  
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../algorithms/dubins/" class="md-tabs__link">
+          
+  
+  
+  Algorithms
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/multi_uav_planner/" class="md-tabs__link">
+          
+  
+  
+  API
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../dev/architecture/" class="md-tabs__link">
+          
+  
+  
+  Dev
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Multi-UAV Planner" class="md-nav__button md-logo" aria-label="Multi-UAV Planner" data-md-component="logo">
+      
+  <img src="../../assets/uav.png" alt="logo">
+
+    </a>
+    Multi-UAV Planner
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/LucianNita/Drone-case-study" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/scenarios/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scenarios
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/plotting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plotting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/simulation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simulation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Path + Dubins
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Path + Dubins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-path-primitives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1) Path Primitives
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-plotting-path-primitives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2) Plotting path primitives
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-dubins-paths-cs-and-csc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3) Dubins paths (CS and CSC)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-plotting-dubins-candidates-and-highlighting-shortest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4) Plotting Dubins candidates and highlighting shortest
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-straight-line-feasibility-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5) Straight-line feasibility checks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-integration-policy-transit-path-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6) Integration policy (transit path selection)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-continuity-and-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7) Continuity and validation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-common-pitfalls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8) Common pitfalls
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-exercises" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9) Exercises
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references-and-implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        References and implementation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../clustering_assignment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Clustering + Assignment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../full_mission/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Full Mission
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Algorithms
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Algorithms
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../algorithms/dubins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dubins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../algorithms/assignment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Assignment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../algorithms/clustering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Clustering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/multi_uav_planner/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    multi_uav_planner
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dev
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Dev
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev/profiling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Profiling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev/contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="path_model_and_dubins">Path_Model_And_Dubins<a class="headerlink" href="#path_model_and_dubins" title="Permanent link">&para;</a></h1>
+<p>This tutorial introduces the path primitives used throughout the project and shows how to construct and visualize Dubins paths. You will:</p>
+<ul>
+<li>Build line and arc segments and compose them into a path.</li>
+<li>Sample points along segments and compute lengths.</li>
+<li>Construct CS and CSC Dubins paths, check feasibility, and select the shortest.</li>
+<li>Plot paths and compare candidate Dubins types.</li>
+</ul>
+<p>Prerequisites:</p>
+<ul>
+<li>Python 3.10+</li>
+<li>matplotlib for plotting</li>
+<li>numpy (optional, used by some helpers)</li>
+</ul>
+<p>Optional plotting helpers reside in the visuals folder:</p>
+<p>visuals/plotting_dubins.py (for segment and path visualization and Dubins-specific plotting)</p>
+<hr />
+<h2 id="1-path-primitives">1) Path Primitives<a class="headerlink" href="#1-path-primitives" title="Permanent link">&para;</a></h2>
+<p>The path model defines three core types:</p>
+<p>Segment interface (Segment)
+Straight segment (LineSegment)
+Circular arc segment (CurveSegment)
+Sequence of segments (Path)
+Key formulas:</p>
+<ul>
+<li>Line length: $$ L_S = \sqrt{(x_2-x_1)^2+(y_2-y_1)^2} $$.</li>
+<li>Arc length: $$ L_C = R \cdot \Delta\theta $$.</li>
+</ul>
+<p>Minimal usage:
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">multi_uav_planner.path_model</span><span class="w"> </span><span class="kn">import</span> <span class="n">LineSegment</span><span class="p">,</span> <span class="n">CurveSegment</span><span class="p">,</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">math</span><span class="w"> </span><span class="kn">import</span> <span class="n">pi</span>
+
+<span class="c1"># Build a line from (0,0) to (120,40)</span>
+<span class="n">line</span> <span class="o">=</span> <span class="n">LineSegment</span><span class="p">((</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="p">(</span><span class="mf">120.0</span><span class="p">,</span> <span class="mf">40.0</span><span class="p">))</span>
+
+<span class="c1"># Build a quarter-circle arc of radius 30 centered at (100,40)</span>
+<span class="n">arc</span>  <span class="o">=</span> <span class="n">CurveSegment</span><span class="p">(</span><span class="n">center</span><span class="o">=</span><span class="p">(</span><span class="mf">100.0</span><span class="p">,</span> <span class="mf">40.0</span><span class="p">),</span> <span class="n">radius</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span> <span class="n">theta_s</span><span class="o">=</span><span class="n">pi</span><span class="p">,</span> <span class="n">d_theta</span><span class="o">=</span><span class="n">pi</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="c1"># Compose into a path</span>
+<span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">([</span><span class="n">line</span><span class="p">,</span> <span class="n">arc</span><span class="p">])</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Line length:&quot;</span><span class="p">,</span> <span class="n">line</span><span class="o">.</span><span class="n">length</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Arc length:&quot;</span><span class="p">,</span> <span class="n">arc</span><span class="o">.</span><span class="n">length</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Total path length:&quot;</span><span class="p">,</span> <span class="n">path</span><span class="o">.</span><span class="n">length</span><span class="p">())</span>
+
+<span class="c1"># Sample points along the path (uniformly per segment)</span>
+<span class="n">pts</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">samples_per_segment</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Number of sampled points:&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">pts</span><span class="p">))</span>
+</code></pre></div></p>
+<p>Notes: 
+- <code>CurveSegment.theta_s</code> is the angle (radians) from the center to the segment’s start point.
+- <code>CurveSegment.d_theta</code> is the signed sweep: positive counterclockwise, negative clockwise.
+- <code>Path.sample</code> concatenates samples per segment and removes the duplicated junction point between adjacent segments.</p>
+<hr />
+<h2 id="2-plotting-path-primitives">2) Plotting path primitives<a class="headerlink" href="#2-plotting-path-primitives" title="Permanent link">&para;</a></h2>
+<p>Use the plotting helpers to visualize lines and arcs with direction arrows and optional circle centers. 
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">visuals.plotting</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_path</span><span class="p">,</span> <span class="n">PlotStyle</span><span class="p">,</span> <span class="n">finalize_axes</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">multi_uav_planner.path_model</span><span class="w"> </span><span class="kn">import</span> <span class="n">LineSegment</span><span class="p">,</span> <span class="n">CurveSegment</span><span class="p">,</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">math</span><span class="w"> </span><span class="kn">import</span> <span class="n">pi</span>
+
+<span class="n">line</span> <span class="o">=</span> <span class="n">LineSegment</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">120</span><span class="p">,</span> <span class="mi">40</span><span class="p">))</span>
+<span class="n">arc</span>  <span class="o">=</span> <span class="n">CurveSegment</span><span class="p">(</span><span class="n">center</span><span class="o">=</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">40</span><span class="p">),</span> <span class="n">radius</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">theta_s</span><span class="o">=</span><span class="n">pi</span><span class="p">,</span> <span class="n">d_theta</span><span class="o">=</span><span class="n">pi</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">([</span><span class="n">line</span><span class="p">,</span> <span class="n">arc</span><span class="p">])</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">7</span><span class="p">))</span>
+<span class="n">style</span> <span class="o">=</span> <span class="n">PlotStyle</span><span class="p">(</span><span class="n">show_centers</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">arrow_every</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span> <span class="n">arrow_scale</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
+<span class="n">plot_path</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">style</span><span class="p">)</span>
+<span class="n">finalize_axes</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="s2">&quot;Path primitives (Line + Arc)&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</code></pre></div></p>
+<p>Style options (selected):</p>
+<ul>
+<li><code>show_centers</code>: draw arc centers</li>
+<li><code>arrow_every</code>: arrow cadence along segments</li>
+<li><code>arrow_scale</code>: arrow size</li>
+<li><code>linewidth</code>, <code>line_color</code>, <code>arc_color</code>: appearance overrides</li>
+</ul>
+<hr />
+<h2 id="3-dubins-paths-cs-and-csc">3) Dubins paths (CS and CSC)<a class="headerlink" href="#3-dubins-paths-cs-and-csc" title="Permanent link">&para;</a></h2>
+<p>Dubins paths satisfy a fixed minimum turn radius $ R $ and heading constraints and consist of straight ($ S <span class="arithmatex">\() and circular (\)</span> C $) segments.</p>
+<p>Families:</p>
+<ul>
+<li>CS: one arc then straight ($ LS <span class="arithmatex">\(,\)</span> RS $)</li>
+<li>CSC: two arcs with an intermediate straight ($ LSL <span class="arithmatex">\(,\)</span> LSR <span class="arithmatex">\(,\)</span> RSL <span class="arithmatex">\(,\)</span> RSR $)</li>
+</ul>
+<p>Feasibility conditions:</p>
+<ul>
+<li>CS to a point: let $ d $ be the distance from the start-circle center to the target point, then CS exists iff: $ d \geq R $.</li>
+<li>CSC (inner tangents): let $ d $ be the distance between start and end circle centers, then inner tangents ($ LSR <span class="arithmatex">\(,\)</span> RSL $) exist iff: $ \frac{2R}{d}\leq 1 $.</li>
+</ul>
+<p>Construct CS shortest:
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">math</span><span class="w"> </span><span class="kn">import</span> <span class="n">pi</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">multi_uav_planner.dubins</span><span class="w"> </span><span class="kn">import</span> <span class="n">cs_segments_shortest</span>
+
+<span class="n">start</span> <span class="o">=</span> <span class="p">(</span><span class="mf">50.0</span><span class="p">,</span> <span class="mf">50.0</span><span class="p">,</span> <span class="n">pi</span><span class="o">/</span><span class="mi">6</span><span class="p">)</span>  <span class="c1"># (x0, y0, theta0)</span>
+<span class="n">end</span>   <span class="o">=</span> <span class="p">(</span><span class="mf">220.0</span><span class="p">,</span> <span class="mf">80.0</span><span class="p">)</span>       <span class="c1"># (xf, yf)</span>
+<span class="n">R</span>     <span class="o">=</span> <span class="mf">40.0</span>
+
+<span class="n">path_cs</span> <span class="o">=</span> <span class="n">cs_segments_shortest</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">R</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;CS length:&quot;</span><span class="p">,</span> <span class="n">path_cs</span><span class="o">.</span><span class="n">length</span><span class="p">())</span>
+</code></pre></div></p>
+<p>Construct CSC shortest:
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">math</span><span class="w"> </span><span class="kn">import</span> <span class="n">pi</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">multi_uav_planner.dubins</span><span class="w"> </span><span class="kn">import</span> <span class="n">csc_segments_shortest</span>
+
+<span class="n">start</span> <span class="o">=</span> <span class="p">(</span><span class="mf">40.0</span><span class="p">,</span> <span class="mf">40.0</span><span class="p">,</span> <span class="n">pi</span><span class="o">/</span><span class="mi">3</span><span class="p">)</span>     <span class="c1"># (x0, y0, theta0)</span>
+<span class="n">end</span>   <span class="o">=</span> <span class="p">(</span><span class="mf">250.0</span><span class="p">,</span> <span class="mf">140.0</span><span class="p">,</span> <span class="o">-</span><span class="n">pi</span><span class="o">/</span><span class="mi">6</span><span class="p">)</span>  <span class="c1"># (xf, yf, thetaf)</span>
+<span class="n">R</span>     <span class="o">=</span> <span class="mf">50.0</span>
+
+<span class="n">path_csc</span> <span class="o">=</span> <span class="n">csc_segments_shortest</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">R</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;CSC length:&quot;</span><span class="p">,</span> <span class="n">path_csc</span><span class="o">.</span><span class="n">length</span><span class="p">())</span>
+</code></pre></div></p>
+<hr />
+<h2 id="4-plotting-dubins-candidates-and-highlighting-shortest">4) Plotting Dubins candidates and highlighting shortest<a class="headerlink" href="#4-plotting-dubins-candidates-and-highlighting-shortest" title="Permanent link">&para;</a></h2>
+<p>Compare all feasible CS or CSC types and highlight the shortest in bold.
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">math</span><span class="w"> </span><span class="kn">import</span> <span class="n">pi</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">multi_uav_planner.dubins</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">cs_segments_single</span><span class="p">,</span> <span class="n">cs_segments_shortest</span><span class="p">,</span>
+    <span class="n">csc_segments_single</span><span class="p">,</span> <span class="n">csc_segments_shortest</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">visuals.plotting</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_path</span><span class="p">,</span> <span class="n">PlotStyle</span><span class="p">,</span> <span class="n">finalize_axes</span>
+
+<span class="c1"># CS comparison</span>
+<span class="n">start_cs</span> <span class="o">=</span> <span class="p">(</span><span class="mf">50.0</span><span class="p">,</span> <span class="mf">50.0</span><span class="p">,</span> <span class="n">pi</span><span class="o">/</span><span class="mi">6</span><span class="p">)</span>
+<span class="n">end_cs</span>   <span class="o">=</span> <span class="p">(</span><span class="mf">220.0</span><span class="p">,</span> <span class="mf">80.0</span><span class="p">)</span>
+<span class="n">R_cs</span>     <span class="o">=</span> <span class="mf">40.0</span>
+
+<span class="n">candidates_cs</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;LS&quot;</span><span class="p">:</span> <span class="n">cs_segments_single</span><span class="p">(</span><span class="n">start_cs</span><span class="p">,</span> <span class="n">end_cs</span><span class="p">,</span> <span class="n">R_cs</span><span class="p">,</span> <span class="s2">&quot;LS&quot;</span><span class="p">),</span>
+    <span class="s2">&quot;RS&quot;</span><span class="p">:</span> <span class="n">cs_segments_single</span><span class="p">(</span><span class="n">start_cs</span><span class="p">,</span> <span class="n">end_cs</span><span class="p">,</span> <span class="n">R_cs</span><span class="p">,</span> <span class="s2">&quot;RS&quot;</span><span class="p">),</span>
+<span class="p">}</span>
+<span class="n">best_cs</span> <span class="o">=</span> <span class="n">cs_segments_shortest</span><span class="p">(</span><span class="n">start_cs</span><span class="p">,</span> <span class="n">end_cs</span><span class="p">,</span> <span class="n">R_cs</span><span class="p">)</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">candidates_cs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="k">if</span> <span class="n">p</span><span class="p">:</span>  <span class="c1"># only plot feasible</span>
+        <span class="n">plot_path</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">PlotStyle</span><span class="p">(</span><span class="n">line_color</span><span class="o">=</span><span class="s2">&quot;C1&quot;</span><span class="p">,</span> <span class="n">arc_color</span><span class="o">=</span><span class="s2">&quot;C1&quot;</span><span class="p">,</span> <span class="n">show_centers</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+<span class="c1"># bold shortest</span>
+<span class="n">plot_path</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">best_cs</span><span class="p">,</span> <span class="n">PlotStyle</span><span class="p">(</span><span class="n">line_color</span><span class="o">=</span><span class="s2">&quot;k&quot;</span><span class="p">,</span> <span class="n">arc_color</span><span class="o">=</span><span class="s2">&quot;k&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">2.8</span><span class="p">,</span> <span class="n">show_centers</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+<span class="n">finalize_axes</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="s2">&quot;Dubins CS candidates (shortest in bold)&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</code></pre></div></p>
+<p>CSC comparison:
+<div class="highlight"><pre><span></span><code><span class="n">start_csc</span> <span class="o">=</span> <span class="p">(</span><span class="mf">40.0</span><span class="p">,</span> <span class="mf">40.0</span><span class="p">,</span> <span class="n">pi</span><span class="o">/</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">end_csc</span>   <span class="o">=</span> <span class="p">(</span><span class="mf">250.0</span><span class="p">,</span> <span class="mf">140.0</span><span class="p">,</span> <span class="o">-</span><span class="n">pi</span><span class="o">/</span><span class="mi">6</span><span class="p">)</span>
+<span class="n">R_csc</span>     <span class="o">=</span> <span class="mf">50.0</span>
+
+<span class="n">candidates_csc</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;LSL&quot;</span><span class="p">:</span> <span class="n">csc_segments_single</span><span class="p">(</span><span class="n">start_csc</span><span class="p">,</span> <span class="n">end_csc</span><span class="p">,</span> <span class="n">R_csc</span><span class="p">,</span> <span class="s2">&quot;LSL&quot;</span><span class="p">),</span>
+    <span class="s2">&quot;LSR&quot;</span><span class="p">:</span> <span class="n">csc_segments_single</span><span class="p">(</span><span class="n">start_csc</span><span class="p">,</span> <span class="n">end_csc</span><span class="p">,</span> <span class="n">R_csc</span><span class="p">,</span> <span class="s2">&quot;LSR&quot;</span><span class="p">),</span>
+    <span class="s2">&quot;RSL&quot;</span><span class="p">:</span> <span class="n">csc_segments_single</span><span class="p">(</span><span class="n">start_csc</span><span class="p">,</span> <span class="n">end_csc</span><span class="p">,</span> <span class="n">R_csc</span><span class="p">,</span> <span class="s2">&quot;RSL&quot;</span><span class="p">),</span>
+    <span class="s2">&quot;RSR&quot;</span><span class="p">:</span> <span class="n">csc_segments_single</span><span class="p">(</span><span class="n">start_csc</span><span class="p">,</span> <span class="n">end_csc</span><span class="p">,</span> <span class="n">R_csc</span><span class="p">,</span> <span class="s2">&quot;RSR&quot;</span><span class="p">),</span>
+<span class="p">}</span>
+<span class="n">best_csc</span> <span class="o">=</span> <span class="n">csc_segments_shortest</span><span class="p">(</span><span class="n">start_csc</span><span class="p">,</span> <span class="n">end_csc</span><span class="p">,</span> <span class="n">R_csc</span><span class="p">)</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">7</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">candidates_csc</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="k">if</span> <span class="n">p</span><span class="p">:</span>
+        <span class="n">plot_path</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">PlotStyle</span><span class="p">(</span><span class="n">line_color</span><span class="o">=</span><span class="s2">&quot;C2&quot;</span><span class="p">,</span> <span class="n">arc_color</span><span class="o">=</span><span class="s2">&quot;C2&quot;</span><span class="p">,</span> <span class="n">show_centers</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+<span class="n">plot_path</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">best_csc</span><span class="p">,</span> <span class="n">PlotStyle</span><span class="p">(</span><span class="n">line_color</span><span class="o">=</span><span class="s2">&quot;k&quot;</span><span class="p">,</span> <span class="n">arc_color</span><span class="o">=</span><span class="s2">&quot;k&quot;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">2.8</span><span class="p">,</span> <span class="n">show_centers</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+<span class="n">finalize_axes</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="s2">&quot;Dubins CSC candidates (shortest in bold)&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</code></pre></div></p>
+<hr />
+<h2 id="5-straight-line-feasibility-checks">5) Straight-line feasibility checks<a class="headerlink" href="#5-straight-line-feasibility-checks" title="Permanent link">&para;</a></h2>
+<p>A straight segment is valid when headings align with the line direction within tolerance, either for unconstrained (only start) or constrained entries (both start and end).</p>
+<p>Heading alignment:</p>
+<ul>
+<li>Line direction: $ \theta_{line}=\text{atan2}(y_f-y_0, x_f-x_0) $.</li>
+<li>Wrap-aware difference: $ \text{ang_diff}(a,b)=((a−b+\pi)\text{mod}2\pi)−\pi $.</li>
+</ul>
+<p>Example check:
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">straight_feasible</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">theta_end_or_none</span><span class="p">,</span> <span class="n">ang_tol</span><span class="p">):</span>
+    <span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">,</span> <span class="n">th0</span> <span class="o">=</span> <span class="n">start</span>
+    <span class="n">xf</span><span class="p">,</span> <span class="n">yf</span> <span class="o">=</span> <span class="n">end</span>
+    <span class="n">theta_line</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">atan2</span><span class="p">(</span><span class="n">yf</span> <span class="o">-</span> <span class="n">y0</span><span class="p">,</span> <span class="n">xf</span> <span class="o">-</span> <span class="n">x0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">theta_end_or_none</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">abs</span><span class="p">(((</span><span class="n">th0</span> <span class="o">-</span> <span class="n">theta_line</span> <span class="o">+</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">%</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span> <span class="o">-</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">ang_tol</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">thf</span> <span class="o">=</span> <span class="n">theta_end_or_none</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="nb">abs</span><span class="p">(((</span><span class="n">th0</span> <span class="o">-</span> <span class="n">theta_line</span> <span class="o">+</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">%</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span> <span class="o">-</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">ang_tol</span>
+            <span class="ow">and</span> <span class="nb">abs</span><span class="p">(((</span><span class="n">thf</span> <span class="o">-</span> <span class="n">theta_line</span> <span class="o">+</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">%</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span> <span class="o">-</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">ang_tol</span>
+        <span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">straight_feasible</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mf">0.0</span><span class="p">),</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">0</span><span class="p">),</span> <span class="kc">None</span><span class="p">,</span> <span class="n">ang_tol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">))</span>  <span class="c1"># True if heading ~ 0</span>
+</code></pre></div></p>
+<hr />
+<h2 id="6-integration-policy-transit-path-selection">6) Integration policy (transit path selection)<a class="headerlink" href="#6-integration-policy-transit-path-selection" title="Permanent link">&para;</a></h2>
+<p>The planner (<code>path_plan_to_task</code>) applies the following policy:</p>
+<ul>
+<li>If co-located within position tolerance:<ul>
+<li>If entry heading unconstrained or matches within angle tolerance, return an empty path.</li>
+<li>Otherwise, use CSC to correct heading in place.</li>
+</ul>
+</li>
+<li>Unconstrained entry:<ul>
+<li>If straight-line heading matches within tolerance, use a straight segment.</li>
+<li>Else, use CS shortest.</li>
+</ul>
+</li>
+<li>Constrained entry:<ul>
+<li>If both start and end headings align to the line within tolerance, use a straight segment.</li>
+<li>Else, try CS and keep only those whose final straight heading matches the required entry heading; if none remain, use CSC shortest.</li>
+</ul>
+</li>
+</ul>
+<p>Minimal usage:
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">math</span><span class="w"> </span><span class="kn">import</span> <span class="n">pi</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">multi_uav_planner.world_models</span><span class="w"> </span><span class="kn">import</span> <span class="n">World</span><span class="p">,</span> <span class="n">UAV</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">multi_uav_planner.path_planner</span><span class="w"> </span><span class="kn">import</span> <span class="n">plan_path_to_task</span>
+
+<span class="n">world</span> <span class="o">=</span> <span class="n">World</span><span class="p">(</span><span class="n">tasks</span><span class="o">=</span><span class="p">{},</span> <span class="n">uavs</span><span class="o">=</span><span class="p">{},</span> <span class="n">base</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">))</span>
+<span class="n">world</span><span class="o">.</span><span class="n">uavs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">UAV</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">position</span><span class="o">=</span><span class="p">(</span><span class="mf">50.0</span><span class="p">,</span> <span class="mf">50.0</span><span class="p">,</span> <span class="n">pi</span><span class="o">/</span><span class="mi">6</span><span class="p">),</span> <span class="n">turn_radius</span><span class="o">=</span><span class="mf">60.0</span><span class="p">)</span>
+
+<span class="c1"># Unconstrained entry</span>
+<span class="n">p1</span> <span class="o">=</span> <span class="n">plan_path_to_task</span><span class="p">(</span><span class="n">world</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mf">220.0</span><span class="p">,</span> <span class="mf">120.0</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Transit length (unconstrained):&quot;</span><span class="p">,</span> <span class="n">p1</span><span class="o">.</span><span class="n">length</span><span class="p">())</span>
+
+<span class="c1"># Constrained entry (due east)</span>
+<span class="n">p2</span> <span class="o">=</span> <span class="n">plan_path_to_task</span><span class="p">(</span><span class="n">world</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mf">220.0</span><span class="p">,</span> <span class="mf">120.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Transit length (constrained):&quot;</span><span class="p">,</span> <span class="n">p2</span><span class="o">.</span><span class="n">length</span><span class="p">())</span>
+</code></pre></div></p>
+<hr />
+<h2 id="7-continuity-and-validation">7) Continuity and validation<a class="headerlink" href="#7-continuity-and-validation" title="Permanent link">&para;</a></h2>
+<p>Junction continuity:</p>
+<ul>
+<li>Position continuity at segment boundaries within positional tolerance.</li>
+<li>Tangent continuity at arc→line transitions:<ul>
+<li>The line heading equals the arc tangent at the junction within angular tolerance.</li>
+</ul>
+</li>
+</ul>
+<p>Length correctness:
+- For a path with segments $ {s_i}: L = \sum_i , L_S = \sqrt{\Delta x^2+\Delta y^2}, L_C=R \cdot |\theta|. </p>
+<hr />
+<h2 id="8-common-pitfalls">8) Common pitfalls<a class="headerlink" href="#8-common-pitfalls" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Failing CS feasibility check $ d \geq R $.</li>
+<li>Inner CSC types used when $ \frac{2R}{d}&gt;1 $ (infeasible).</li>
+<li>Forgetting to normalize angles before computing signed sweeps.</li>
+<li>Comparing headings without wrap-aware difference (use $ ang_diff $).</li>
+</ul>
+<hr />
+<h2 id="9-exercises">9) Exercises<a class="headerlink" href="#9-exercises" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Plot LS and RS for multiple start headings with a fixed target and radius; compare lengths.</li>
+<li>Sweep $ R $ from small to large and record CS shortest length; note feasibility changes when $ d &lt; R $.</li>
+<li>Sweep $ \theta_f $ for CSC and record shortest path length; visualize the curve $ L(\theta_f) $.</li>
+<li>Validate junction continuity numerically for random CS/CSC candidates.</li>
+</ul>
+<hr />
+<h2 id="references-and-implementation">References and implementation<a class="headerlink" href="#references-and-implementation" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>src/multi_uav_planner/path_model.py</code>: segments and path composition</li>
+<li><code>src/multi_uav_planner/dubins.py</code>: CS/CSC constructors and shortest selection</li>
+<li><code>src/multi_uav_planner/path_planner.py</code>: transit selection policy
+Classic reference: Dubins, L. E. (1957), “On curves of minimal length with a constraint on average curvature, and with prescribed initial and terminal positions and tangents.” American Journal of Mathematics.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/LucianNita/Drone-case-study" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.top", "navigation.sections", "navigation.instant", "toc.integrate", "content.code.copy", "content.tabs.link", "header.autohide"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+      
+        <script src="../../assets/katex-init.js"></script>
+      
+        <script src="../../js/math-render.js"></script>
+      
+    
+  </body>
+</html>
