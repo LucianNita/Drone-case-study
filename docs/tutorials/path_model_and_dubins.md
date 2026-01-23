@@ -19,7 +19,7 @@ visuals/plotting_dubins.py (for segment and path visualization and Dubins-specif
 
 ---
 
-1) Path Primitives 
+## 1) Path Primitives 
 
 The path model defines three core types:
 
@@ -61,7 +61,7 @@ Notes:
 - `Path.sample` concatenates samples per segment and removes the duplicated junction point between adjacent segments.
 
 --- 
-2) Plotting path primitives 
+## 2) Plotting path primitives 
 
 Use the plotting helpers to visualize lines and arcs with direction arrows and optional circle centers. 
 ```python 
@@ -89,7 +89,7 @@ Style options (selected):
 - `linewidth`, `line_color`, `arc_color`: appearance overrides
 
 --- 
-3) Dubins paths (CS and CSC)
+## 3) Dubins paths (CS and CSC)
 
 Dubins paths satisfy a fixed minimum turn radius $ R $ and heading constraints and consist of straight ($ S $) and circular ($ C $) segments.
 
@@ -130,7 +130,7 @@ print("CSC length:", path_csc.length())
 ```
 
 ---
-4) Plotting Dubins candidates and highlighting shortest 
+## 4) Plotting Dubins candidates and highlighting shortest 
 
 Compare all feasible CS or CSC types and highlight the shortest in bold.
 ```python
@@ -163,8 +163,8 @@ finalize_axes(ax, "Dubins CS candidates (shortest in bold)")
 plt.show()
 ```
 
+CSC comparison:
 ```python
-# CSC comparison
 start_csc = (40.0, 40.0, pi/3)
 end_csc   = (250.0, 140.0, -pi/6)
 R_csc     = 50.0
@@ -186,7 +186,7 @@ finalize_axes(ax, "Dubins CSC candidates (shortest in bold)")
 plt.show()
 ```
 --- 
-5) Straight-line feasibility checks
+## 5) Straight-line feasibility checks
 
 A straight segment is valid when headings align with the line direction within tolerance, either for unconstrained (only start) or constrained entries (both start and end).
 
@@ -216,7 +216,7 @@ print(straight_feasible((0,0,0.0), (10,0), None, ang_tol=1e-3))  # True if headi
 ```
 
 --- 
-6) Integration policy (transit path selection)
+## 6) Integration policy (transit path selection)
 The planner (`path_plan_to_task`) applies the following policy:
 
 - If co-located within position tolerance:
@@ -248,7 +248,7 @@ print("Transit length (constrained):", p2.length())
 ```
 
 ---
-7) Continuity and validation
+## 7) Continuity and validation
 
 Junction continuity:
 
@@ -260,14 +260,14 @@ Length correctness:
 - For a path with segments $ {s_i}: L = \sum_i , L_S = \sqrt{\Delta x^2+\Delta y^2}, L_C=R \cdot |\theta|. 
 
 ---
-8) Common pitfalls
+## 8) Common pitfalls
 - Failing CS feasibility check $ d \geq R $.
 - Inner CSC types used when $ \frac{2R}{d}>1 $ (infeasible).
 - Forgetting to normalize angles before computing signed sweeps.
 - Comparing headings without wrap-aware difference (use $ ang_diff $).
 
 ---
-9) Exercises 
+## 9) Exercises 
 
 - Plot LS and RS for multiple start headings with a fixed target and radius; compare lengths.
 - Sweep $ R $ from small to large and record CS shortest length; note feasibility changes when $ d < R $.
