@@ -4,11 +4,11 @@ This page documents the task assignment strategies used in the planner, the cost
 
 ## Problem formulation
 
-Given a set of idle UAVs $$\mathcal{U}=\{1,\dots,n\}$$ and a set of candidate tasks $$\mathcal{T}=\{1,\dots,m\}$$, we build a cost matrix
+Given a set of idle UAVs $$\mathcal{U}=\{1,\dots,n\}$$ and a set of candidate unassigned tasks $$\mathcal{T}=\{1,\dots,m\}$$, we build a cost matrix
 $$
 C \in \mathbb{R}^{n \times m}, \quad C_{i,j} \ge 0
 $$
-where $$C_{i,j}$$ is the cost of assigning UAV $$i$$ to task $$j$$. The canonical objective is the linear assignment problem:
+where $$C_{i,j}$$ is the cost of assigning UAV $$i$$ to task $$j$$ (conceptually interpreted as the path length between UAV $$i$$ and task $$j$). The canonical objective is the linear assignment problem:
 $$
 \min_{x \in \{0,1\}^{n \times m}} \ \sum_{i=1}^n \sum_{j=1}^m C_{i,j} \, x_{i,j}
 $$

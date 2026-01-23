@@ -189,6 +189,6 @@ Conceptual dataflow:
 
 ---
 
-![Architecture diagram](../assets/architecture.png){: style="display:block; margin: 0 auto; max-width: 100%;" }
+![Architecture diagram](../assets/architecture.png)
 
 *Figure 1 — Module dependency diagram for Multi‑UAV Planner.*

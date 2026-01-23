@@ -101,16 +101,16 @@ Notes:
 ## Stopping conditions
 
 The loop ends when both:
-- $$\text{world.done()} = \left(\text{unassigned} = \varnothing \land \text{assigned} = \varnothing\right)$$
-- $$\text{world.at\_base()} = \text{True}$$ (all non‑damaged UAVs back at base within tolerances)
+- $$ \text{world.done()} = \left(\text{unassigned} = \varnothing \land \text{assigned} = \varnothing\right) $$
+- $$ \text{world.at\_base()} = \text{True} $$ (all non‑damaged UAVs back at base within tolerances)
 
 Or when:
-- $$\text{world.time} > \text{max\_time}$$ (safety cap), or
+- $$ \text{world.time} > \text{max\_time} $$ (safety cap), or
 - Stalling criterion triggers.
 
 Tolerances:
-- Position: $$\text{Tolerances.pos}$$ (m)
-- Angle: $$\text{Tolerances.ang}$$ (rad)
+- Position: $$ \text{Tolerances.pos} $$ (m)
+- Angle: $$ \text{Tolerances.ang} $$ (rad)
 
 ## Configuration knobs
 
