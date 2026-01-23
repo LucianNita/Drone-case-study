@@ -74,7 +74,7 @@ class WorldPlotStyle:
     legend_loc: str = "upper right"
 
 
-    pad_frac: float = 0.25  # 15% of max span
+    pad_frac: float = 0.25  # 25% of max span
 
 def finalize_axes(ax, title: Optional[str] = None, equal: bool = True, grid: bool = True):
     if title:
@@ -250,36 +250,59 @@ def _plot_area_task(ax, t: AreaTask, color: str, style: WorldPlotStyle):
       - Semicircle turns of radius t.pass_spacing/2 between passes.
       - t.side selects direction of the first turn (left/right); subsequent turns alternate.
     """
+    # --- Bounding rectangle (dotted) around coverage footprint ---
     x0, y0 = t.position
     th = t.heading if t.heading is not None else 0.0
 
-    tol=1.1
-    # Extent along heading
-    L = (t.pass_length + t.pass_spacing)
-    # Extent perpendicular (full width)
+    tol = 1.1  # padding factor
+
+    # Extent along heading (approximate length)
+    L = t.pass_length + t.pass_spacing
+    # Extent across passes
     W = t.pass_spacing * (t.num_passes - 1) if t.num_passes > 1 else t.pass_spacing
 
-    # Unit vectors
+    # Basis vectors
     hx, hy = np.cos(th), np.sin(th)
     nx, ny = -np.sin(th), np.cos(th)  # left normal
 
-    # Define rectangle corners in world coords
-    if t.side!='left':
-        nx*=-1
-        ny*=-1
+    # Flip normal if side is not 'left'
+    if t.side != "left":
+        nx *= -1
+        ny *= -1
 
-    p1 = (x0 + (L*(tol+1)/2-t.pass_spacing/2)*hx + (W*(tol+1)/2)*nx, y0 + (L*(tol+1)/2-t.pass_spacing/2)*hy + (W*(tol+1)/2)*ny)
-    p2 = (x0 + (L*(tol+1)/2-t.pass_spacing/2)*hx + (-W*(tol-1)/2)*nx, y0 + (L*(tol+1)/2-t.pass_spacing/2)*hy + (-W*(tol-1)/2)*ny)
-    p3 = (x0 + (-L*(tol-1)/2-t.pass_spacing/2)*hx   + (-W*(tol-1)/2)*nx, y0 + (-L*(tol-1)/2-t.pass_spacing/2)*hy   + (-W*(tol-1)/2)*ny)
-    p4 = (x0 + (-L*(tol-1)/2-t.pass_spacing/2)*hx   + (W*(tol+1)/2)*nx, y0 + (-L*(tol-1)/2-t.pass_spacing/2)*hy   + (W*(tol+1)/2)*ny)
+    # Rectangle corners (heuristic, matching original logic)
+    p1 = (
+        x0 + (L * (tol + 1) / 2 - t.pass_spacing / 2) * hx
+        + (W * (tol + 1) / 2) * nx,
+        y0 + (L * (tol + 1) / 2 - t.pass_spacing / 2) * hy
+        + (W * (tol + 1) / 2) * ny,
+    )
+    p2 = (
+        x0 + (L * (tol + 1) / 2 - t.pass_spacing / 2) * hx
+        - (W * (tol - 1) / 2) * nx,
+        y0 + (L * (tol + 1) / 2 - t.pass_spacing / 2) * hy
+        - (W * (tol - 1) / 2) * ny,
+    )
+    p3 = (
+        x0 + (-L * (tol - 1) / 2 - t.pass_spacing / 2) * hx
+        - (W * (tol - 1) / 2) * nx,
+        y0 + (-L * (tol - 1) / 2 - t.pass_spacing / 2) * hy
+        - (W * (tol - 1) / 2) * ny,
+    )
+    p4 = (
+        x0 + (-L * (tol - 1) / 2 - t.pass_spacing / 2) * hx
+        + (W * (tol + 1) / 2) * nx,
+        y0 + (-L * (tol - 1) / 2 - t.pass_spacing / 2) * hy
+        + (W * (tol + 1) / 2) * ny,
+    )
 
     xs_rect = [p1[0], p2[0], p3[0], p4[0], p1[0]]
     ys_rect = [p1[1], p2[1], p3[1], p4[1], p1[1]]
-
     ax.plot(xs_rect, ys_rect, linestyle="--", color=color, lw=1.2, alpha=0.8)
-
+    
+    # --- Boustrophedon passes and semicircle turns ---
     x_curr, y_curr = t.position
-    base_heading = t.heading if t.heading is not None else 0.0
+    base_heading = th
     r_turn = t.pass_spacing / 2.0
 
     for i in range(t.num_passes):
@@ -289,83 +312,178 @@ def _plot_area_task(ax, t: AreaTask, color: str, style: WorldPlotStyle):
         # Draw straight pass
         x_end = x_curr + t.pass_length * np.cos(heading)
         y_end = y_curr + t.pass_length * np.sin(heading)
-        ax.plot([x_curr, x_end], [y_curr, y_end],
-                color=color, lw=style.lw_task_geom, alpha=0.9)
+        ax.plot(
+            [x_curr, x_end],
+            [y_curr, y_end],
+            color=color,
+            lw=style.lw_task_geom,
+            alpha=0.9,
+        )
 
         if i == t.num_passes - 1:
-            break  # no turn after last pass
+            # No turn after the last pass
+            break
 
         if not style.show_area_turns:
-            # If we don't want to draw turns, just move the cursor for the next pass
-            # approximate by shifting sideways and reversing heading
-            # side alternates similarly to planner
-            turn_side = t.side if (i % 2 == 0) else ("right" if t.side == "left" else "left")
-            normal = np.pi/2.0 if turn_side == "left" else -np.pi/2.0
-            # shift from end of pass by spacing
+            # If we don't want to draw explicit turns, approximate by
+            # shifting sideways and reversing heading (like in planner).
+            turn_side = (
+                t.side if (i % 2 == 0) else ("right" if t.side == "left" else "left")
+            )
+            normal = np.pi / 2.0 if turn_side == "left" else -np.pi / 2.0
             x_curr = x_end + t.pass_spacing * np.cos(heading + normal)
             y_curr = y_end + t.pass_spacing * np.sin(heading + normal)
             continue
 
-        # --- Draw semicircle turn between passes ---
-        # Turn side alternates (same rule as in your planner)
-        turn_side = t.side if (i % 2 == 0) else ("right" if t.side == "left" else "left")
-        normal = np.pi/2.0 if turn_side == "left" else -np.pi/2.0
+        # --- Draw semicircle turn between passes (as in planner) ---
+        turn_side = (
+            t.side if (i % 2 == 0) else ("right" if t.side == "left" else "left")
+        )
+        normal = np.pi / 2.0 if turn_side == "left" else -np.pi / 2.0
 
         # Center of semicircle is offset from end of pass along the normal
-        cx = x_end + r_turn * np.cos(heading + normal)
-        cy = y_end + r_turn * np.sin(heading + normal)
+        cx_turn = x_end + r_turn * np.cos(heading + normal)
+        cy_turn = y_end + r_turn * np.sin(heading + normal)
 
         # Start angle for arc: angle from center to end of pass
-        theta_start = np.arctan2(y_end - cy, x_end - cx)
+        theta_start = np.arctan2(y_end - cy_turn, x_end - cx_turn)
         # Semicircle sweep
-        d_theta = +np.pi if turn_side == "left" else -np.pi
+        d_theta_turn = +np.pi if turn_side == "left" else -np.pi
 
         # Sample arc
         n_arc = 40
-        thetas = np.linspace(theta_start, theta_start + d_theta, n_arc)
-        xs_turn = cx + r_turn * np.cos(thetas)
-        ys_turn = cy + r_turn * np.sin(thetas)
-        ax.plot(xs_turn, ys_turn, color=color, lw=style.lw_task_geom, alpha=0.9)
+        thetas = np.linspace(theta_start, theta_start + d_theta_turn, n_arc)
+        xs_turn = cx_turn + r_turn * np.cos(thetas)
+        ys_turn = cy_turn + r_turn * np.sin(thetas)
+        ax.plot(
+            xs_turn,
+            ys_turn,
+            color=color,
+            lw=style.lw_task_geom,
+            alpha=0.9,
+        )
 
         # New starting point is end of the semicircle
         x_curr = xs_turn[-1]
         y_curr = ys_turn[-1]
 
+
 def plot_task(ax, t: Task, world: Optional[World], style: WorldPlotStyle):
+    """
+    Plot a single task marker plus its internal geometry (optional).
+
+    The marker color encodes task state:
+      0 -> unassigned
+      1 -> assigned
+      2 -> completed
+
+    For PointTask:
+      - If t.spawned_from_event is True (NEW_TASK), draw a star ('*'),
+        otherwise a circle ('o').
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+    t : Task
+    world : World or None
+        Currently unused (kept for compatibility).
+    style : WorldPlotStyle
+    """
     # Color by state
     state_color = {
         0: style.color_unassigned,
         1: style.color_assigned,
-        2: style.color_completed
+        2: style.color_completed,
     }.get(t.state, style.color_unassigned)
+
+    x, y = t.position
 
     # Marker by type
     if isinstance(t, PointTask):
+        # Distinguish tasks spawned by events with a star
         is_spawned = getattr(t, "spawned_from_event", False)
-        marker_shape = "*" if is_spawned else "o"   # <-- star for new tasks
+        marker_shape = "*" if is_spawned else "o"
 
-        ax.scatter([t.position[0]], [t.position[1]], c=state_color, s=style.task_size, marker=marker_shape)
+        ax.scatter(
+            [x],
+            [y],
+            c=state_color,
+            s=style.task_size,
+            marker=marker_shape,
+        )
         if style.show_task_geometry:
-            ax.scatter([t.position[0]], [t.position[1]], c=style.color_point, s=style.task_size//2, marker=".")
+            ax.scatter(
+                [x],
+                [y],
+                c=style.color_point,
+                s=style.task_size // 2,
+                marker=".",
+            )
+
     elif isinstance(t, LineTask):
-        ax.scatter([t.position[0]], [t.position[1]], c=state_color, s=style.task_size, marker="o")
+        ax.scatter(
+            [x],
+            [y],
+            c=state_color,
+            s=style.task_size,
+            marker="o",
+        )
         if style.show_task_geometry:
             _plot_line_task(ax, t, "blue", style)
+
     elif isinstance(t, CircleTask):
-        ax.scatter([t.position[0]], [t.position[1]], c=state_color, s=style.task_size, marker="o")
+        ax.scatter(
+            [x],
+            [y],
+            c=state_color,
+            s=style.task_size,
+            marker="o",
+        )
         if style.show_task_geometry:
             _plot_circle_task(ax, t, "blue", style)
+
     elif isinstance(t, AreaTask):
-        ax.scatter([t.position[0]], [t.position[1]], c=state_color, s=style.task_size, marker="o")
+        ax.scatter(
+            [x],
+            [y],
+            c=state_color,
+            s=style.task_size,
+            marker="o",
+        )
         if style.show_task_geometry:
             _plot_area_task(ax, t, "blue", style)
+
     else:
-        ax.scatter([t.position[0]], [t.position[1]], c=state_color, s=style.task_size, marker="o") 
-    ax.text(t.position[0], t.position[1], f"T{t.id}", fontsize=8, ha="left", va="bottom")
+        # Fallback marker for unknown task types
+        ax.scatter(
+            [x],
+            [y],
+            c=state_color,
+            s=style.task_size,
+            marker="o",
+        )
+
+    # Label the task as T{id}
+    ax.text(x, y, f"T{t.id}", fontsize=8, ha="left", va="bottom")
+
+    # Heading cue if constrained
     _plot_task_heading(ax, t, style)
 
+
 def plot_tasks(ax, world: World, style: WorldPlotStyle):
-    # Plot in the order: completed (bottom), assigned, unassigned (top) to see current workload
+    """
+    Plot all tasks in a world in a layered order:
+
+       completed (bottom) -> assigned -> unassigned (top).
+
+    This layering makes current workload more visible.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+    world : World
+    style : WorldPlotStyle
+    """
     for tid in world.completed:
         plot_task(ax, world.tasks[tid], world, style)
     for tid in world.assigned:
@@ -373,29 +491,75 @@ def plot_tasks(ax, world: World, style: WorldPlotStyle):
     for tid in world.unassigned:
         plot_task(ax, world.tasks[tid], world, style)
 
+
 def plot_events_timeline(world: World, figsize=(9, 2.5)):
+    """
+    Plot a compact timeline of events (NEW_TASK and UAV_DAMAGE).
+
+    Parameters
+    ----------
+    world : World
+    figsize : (width, height)
+        Size of the figure.
+
+    Returns
+    -------
+    fig, ax : matplotlib.figure.Figure, matplotlib.axes.Axes
+    """
     fig, ax = plt.subplots(figsize=figsize)
-    ys = []
+
     xs = []
+    ys = []
     colors = []
     labels = []
+
     for ev in world.events:
-        ys.append(1)
         xs.append(ev.time)
-        colors.append("tab:red" if ev.kind.name == "UAV_DAMAGE" else "tab:blue")
+        ys.append(1)
+        colors.append(
+            "tab:red" if ev.kind.name == "UAV_DAMAGE" else "tab:blue"
+        )
         labels.append(f"{ev.kind.name}#{ev.id}")
+
     ax.scatter(xs, ys, c=colors, s=60)
+
     for x, lab in zip(xs, labels):
-        ax.text(x, 1.02, lab, rotation=45, fontsize=8, ha="left", va="bottom")
+        ax.text(
+            x,
+            1.02,
+            lab,
+            rotation=45,
+            fontsize=8,
+            ha="left",
+            va="bottom",
+        )
+
     ax.set_ylim(0.9, 1.2)
     ax.set_yticks([])
     ax.set_xlabel("Time")
     ax.set_title("Events Timeline")
     ax.grid(True, alpha=0.3)
+
     return fig, ax
 
+
 def find_snapshot_index(runlog: RunLog, t: float) -> int:
+    """
+    Find index of the snapshot in RunLog closest in time to t.
+
+    Parameters
+    ----------
+    runlog : RunLog
+        Log of simulation snapshots.
+    t : float
+        Target time.
+
+    Returns
+    -------
+    idx : int
+        Index of the closest snapshot.
+    """
     times = [s.time for s in runlog.snapshots]
-    # simple linear search; can optimize with bisect if needed
+    # Simple linear search; can be replaced by bisect if needed
     best_i = min(range(len(times)), key=lambda i: abs(times[i] - t))
     return best_i
