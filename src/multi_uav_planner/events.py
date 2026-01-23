@@ -148,6 +148,9 @@ def _apply_new_task(world: World, tasks: List[Task], clustering: bool) -> None:
       existing UAV routes; that responsibility remains with higher-level logic.
     """
     for task in tasks:
+        
+        # Mark as spawned from event
+        task.spawned_from_event = True
         # Insert or update the task in the global tasks dictionary
         world.tasks[task.id] = task
 

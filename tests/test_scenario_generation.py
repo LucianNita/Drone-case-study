@@ -57,13 +57,13 @@ def test_tasks_within_area_and_headings_reasonable():
 
         # Class-specific constraints
         if isinstance(t, LineTask):
-            assert t.length >= 50.0 and t.length <= 200.0
+            assert t.length >= 50.0 and t.length <= 500.0
         elif isinstance(t, CircleTask):
-            assert t.radius >= 20.0 and t.radius <= 100.0
+            assert t.radius >= 50.0 and t.radius <= 500.0
             assert t.side in ("left", "right")
         elif isinstance(t, AreaTask):
-            assert t.pass_length >= 50.0 and t.pass_length <= 200.0
-            assert t.pass_spacing >= 10.0 and t.pass_spacing <= 40.0
+            assert t.pass_length >= 50.0 and t.pass_length <= 500.0
+            assert t.pass_spacing >= 50.0 and t.pass_spacing <= 500.0
             assert 2 <= t.num_passes <= 5
             assert t.side in ("left", "right")
 

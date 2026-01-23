@@ -12,7 +12,7 @@ from visuals.plotting_events import plot_event_timeline
 STATE_COLORS = {0: "tab:blue", 1: "tab:purple", 2: "tab:red", 3: "tab:brown"}
 
 def plot_overview_with_traces(ax, world, recorder, title: Optional[str] = None):
-    style = WorldPlotStyle(show_area_turns=False)
+    style = WorldPlotStyle(show_area_turns=True)
     plot_world_snapshot(ax, world, style, title=None)
     # overlay traces
     for uid, pts in recorder.positions.items():
@@ -88,3 +88,38 @@ def plot_uav_traces_separate(recorder):
         finalize_axes(ax, f"UAV {uid} trace")
         figs.append(fig)
     return figs
+
+
+from dataclasses import dataclass, field
+from typing import Dict, List, Tuple
+
+from multi_uav_planner.post_processing import RunLog
+
+
+@dataclass
+class RecorderFromRunLog:
+    times: List[float] = field(default_factory=list)
+    positions: Dict[int, List[Tuple[float, float, float]]] = field(default_factory=dict)
+    states: Dict[int, List[int]] = field(default_factory=dict)
+    ranges: Dict[int, List[float]] = field(default_factory=dict)
+    n_unassigned: List[int] = field(default_factory=list)
+    n_assigned: List[int] = field(default_factory=list)
+    n_completed: List[int] = field(default_factory=list)
+
+    @classmethod
+    def from_runlog(cls, runlog: RunLog) -> "RecorderFromRunLog":
+        rec = cls()
+        for snap in runlog.snapshots:
+            rec.times.append(snap.time)
+            rec.n_unassigned.append(len(snap.unassigned))
+            rec.n_assigned.append(len(snap.assigned))
+            rec.n_completed.append(len(snap.completed))
+
+            for uid, pos in snap.uav_positions.items():
+                rec.positions.setdefault(uid, []).append(pos)
+            for uid, st in snap.uav_states.items():
+                rec.states.setdefault(uid, []).append(st)
+            for uid, r in snap.uav_range.items():
+                rec.ranges.setdefault(uid, []).append(r)
+        return rec
+        

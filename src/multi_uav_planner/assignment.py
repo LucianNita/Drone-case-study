@@ -33,7 +33,7 @@ def assignment(world: World, algo: AlgorithmType = AlgorithmType.PRBDD) -> Dict[
     - $$algo$$: AlgorithmType selecting which assignment method to use.
 
     Returns:
-    - Mapping $$\{uav\_id: task\_id\}$$ of assignments that were committed to the world.
+    - Mapping $${uav_id: task_id}$$ of assignments that were committed to the world.
 
     Behavior summary:
     - PRBDD: Per-UAV local assignment from that UAV's cluster (uses greedy assignment
@@ -77,6 +77,7 @@ def assignment(world: World, algo: AlgorithmType = AlgorithmType.PRBDD) -> Dict[
 
             # Commit assignment: set UAV fields and world partitions
             world.uavs[uav].current_task = tid
+            world.tasks[tid].worked_by_uav = uav
             world.uavs[uav].state = 1
             world.uavs[uav].assigned_path = plan_path_to_task(world, uav, (xe, ye, the))
             world.idle_uavs.remove(uav)
@@ -129,6 +130,7 @@ def assignment(world: World, algo: AlgorithmType = AlgorithmType.PRBDD) -> Dict[
             # Commit assignment: choose path depending on algorithm
             world.uavs[uav].current_task = tid
             world.uavs[uav].state = 1
+            world.tasks[tid].worked_by_uav = uav
             if algo is AlgorithmType.RBDD:
                 # RBDD uses full path planning (Dubins) for assignment cost measure
                 world.uavs[uav].assigned_path = plan_path_to_task(world, uav, (xe, ye, the))
@@ -158,13 +160,13 @@ def compute_cost(
 
     Returns a tuple:
       - $$C$$: list of lists representing the cost matrix (shape $$n \times m$$).
-      - $$uav\_ids\_list$$: list mapping row index -> uav_id.
-      - $$task\_ids\_list$$: list mapping column index -> task_id.
-      - $$uav\_index$$: dict mapping uav_id -> row index.
-      - $$task\_index$$: dict mapping task_id -> column index.
+      - $$uav_ids_list$$: list mapping row index -> uav_id.
+      - $$task_ids_list$$: list mapping column index -> task_id.
+      - $$uav_index$$: dict mapping uav_id -> row index.
+      - $$task_index$$: dict mapping task_id -> column index.
 
     Cost semantics:
-    - If $$use\_dubins$$ is True the cost is the length of the Dubins-style path
+    - If $$use_dubins$$ is True the cost is the length of the Dubins-style path
       returned by `plan_path_to_task(world, uid, (x_e, y_e, \theta_e))`.
     - Otherwise the cost is the Euclidean distance:
       $$\text{cost} = \sqrt{(x_e - x_s)^2 + (y_e - y_s)^2}.$$

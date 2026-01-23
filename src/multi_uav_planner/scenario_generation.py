@@ -181,7 +181,7 @@ def _generate_random_task(task_id: int, config: ScenarioConfig, ttype: Optional[
         )
     elif ttype == "Circle":
         heading_enforcement = True
-        radius = random.uniform(20.0, 100.0)
+        radius = random.uniform(config.turn_radius, 5*config.turn_radius)
         side = random.choice(["left", "right"])
         return CircleTask(
             id=task_id,
@@ -194,8 +194,8 @@ def _generate_random_task(task_id: int, config: ScenarioConfig, ttype: Optional[
         )
     else:  # "Area"
         heading_enforcement = True
-        pass_length = random.uniform(50.0, 200.0)
-        pass_spacing = random.uniform(10.0, 40.0)
+        pass_length = random.uniform(150.0, 1000.0)
+        pass_spacing = random.uniform(2*config.turn_radius, 4*config.turn_radius)
         num_passes = random.randint(2, 5)
         side = random.choice(["left", "right"])
         return AreaTask(
