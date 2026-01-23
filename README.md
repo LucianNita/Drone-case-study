@@ -88,7 +88,7 @@ world = World(tasks={}, uavs={})
 animate_world(world, scenario, save=False)
 ```
 
-# Notes
+### Notes
 
 - The simulation uses a discrete time-step loop; the animator collects snapshots via a `RunLog` hook.
 - Distances and lengths are in meters; angles/headings are in radians.
